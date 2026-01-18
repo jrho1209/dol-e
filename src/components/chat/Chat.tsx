@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
+import { useSession } from 'next-auth/react';
 import ChatMessage from './ChatMessage';
 import ChatInput from './ChatInput';
 import { ChatMessage as ChatMessageType } from '@/lib/types';
@@ -12,6 +13,7 @@ const promptExamples = [
 ];
 
 export default function Chat() {
+  const { data: session } = useSession();
   const [messages, setMessages] = useState<ChatMessageType[]>([
     {
       role: 'assistant',
@@ -20,10 +22,43 @@ export default function Chat() {
     },
   ]);
   const [isLoading, setIsLoading] = useState(false);
+  const [savedPlaceIds, setSavedPlaceIds] = useState<Set<string>>(new Set());
   const messagesEndRef = useRef<HTMLDivElement>(null);
   
   // Check if this is the first interaction (only initial assistant message)
   const isFirstInteraction = messages.length === 1 && messages[0].role === 'assistant';
+
+  // Fetch saved favorites
+  useEffect(() => {
+    if (session) {
+      fetchFavorites();
+    }
+  }, [session]);
+
+  const fetchFavorites = async () => {
+    try {
+      const response = await fetch('/api/favorites');
+      if (response.ok) {
+        const data = await response.json();
+        const ids = new Set(data.favorites.map((f: any) => f.place.id));
+        setSavedPlaceIds(ids);
+      }
+    } catch (error) {
+      console.error('Failed to fetch favorites:', error);
+    }
+  };
+
+  const handleSaveToggle = (placeId: string, isSaved: boolean) => {
+    setSavedPlaceIds((prev) => {
+      const newSet = new Set(prev);
+      if (isSaved) {
+        newSet.add(placeId);
+      } else {
+        newSet.delete(placeId);
+      }
+      return newSet;
+    });
+  };
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -109,7 +144,12 @@ export default function Chat() {
       <div className="flex-1 overflow-y-auto px-6 py-4">
         <div className="max-w-3xl mx-auto">
           {messages.map((message, index) => (
-            <ChatMessage key={index} message={message} />
+            <ChatMessage 
+              key={index} 
+              message={message}
+              savedPlaceIds={savedPlaceIds}
+              onSaveToggle={handleSaveToggle}
+            />
           ))}
           
           {/* Prompt Examples - Show only on first interaction */}

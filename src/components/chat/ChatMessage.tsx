@@ -3,9 +3,11 @@ import PlaceCard from './PlaceCard';
 
 interface ChatMessageProps {
   message: ChatMessageType;
+  savedPlaceIds?: Set<string>;
+  onSaveToggle?: (placeId: string, isSaved: boolean) => void;
 }
 
-export default function ChatMessage({ message }: ChatMessageProps) {
+export default function ChatMessage({ message, savedPlaceIds, onSaveToggle }: ChatMessageProps) {
   const isUser = message.role === 'user';
 
   // Debug logging
@@ -65,7 +67,12 @@ export default function ChatMessage({ message }: ChatMessageProps) {
           {!isUser && message.places && message.places.length > 0 && (
             <div className="mt-4 space-y-3">
               {message.places.map((place) => (
-                <PlaceCard key={place.id} place={place} />
+                <PlaceCard 
+                  key={place.id} 
+                  place={place}
+                  isSaved={savedPlaceIds?.has(place.id)}
+                  onSaveToggle={onSaveToggle}
+                />
               ))}
             </div>
           )}

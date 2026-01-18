@@ -1,13 +1,20 @@
 import { Place } from '@/lib/types';
 import Image from 'next/image';
 import { useState } from 'react';
+import { useSession } from 'next-auth/react';
 
 interface PlaceCardProps {
   place: Place;
+  isSaved?: boolean;
+  onSaveToggle?: (placeId: string, isSaved: boolean) => void;
 }
 
-export default function PlaceCard({ place }: PlaceCardProps) {
+export default function PlaceCard({ place, isSaved = false, onSaveToggle }: PlaceCardProps) {
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(isSaved);
+  const { data: session } = useSession();
+  
   const priceLabels = ['$', '$$', '$$$', '$$$$'];
   const priceText = place.price_range ? priceLabels[place.price_range - 1] : '';
 
@@ -44,6 +51,49 @@ export default function PlaceCard({ place }: PlaceCardProps) {
 
   const placeImage = getCategoryImage();
 
+  const handleSaveToggle = async () => {
+    if (!session) {
+      alert('Please login to save favorites');
+      return;
+    }
+
+    setSaving(true);
+    try {
+      if (saved) {
+        // Remove from favorites
+        const response = await fetch(`/api/favorites?placeId=${place.id}`, {
+          method: 'DELETE',
+        });
+        if (response.ok) {
+          setSaved(false);
+          onSaveToggle?.(place.id, false);
+        }
+      } else {
+        // Add to favorites
+        const response = await fetch('/api/favorites', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ placeId: place.id }),
+        });
+        if (response.ok) {
+          setSaved(true);
+          onSaveToggle?.(place.id, true);
+        } else if (response.status === 409) {
+          // Already in favorites
+          setSaved(true);
+          onSaveToggle?.(place.id, true);
+        } else {
+          const data = await response.json();
+          console.error('Failed to save:', data.error);
+        }
+      }
+    } catch (error) {
+      console.error('Failed to toggle favorite:', error);
+    } finally {
+      setSaving(false);
+    }
+  };
+
   return (
     <div className="bg-white dark:bg-gray-800 rounded-xl overflow-hidden shadow-lg hover:shadow-xl transition-shadow duration-300 border border-gray-200 dark:border-gray-700">
       {/* Image Section */}
@@ -61,10 +111,27 @@ export default function PlaceCard({ place }: PlaceCardProps) {
         </div>
         {/* Local Business Badge */}
         {place.is_local_business && (
-          <div className="absolute top-3 right-3 bg-green-500 text-white px-3 py-1 rounded-full text-xs font-semibold">
+          <div className="absolute bottom-3 left-3 bg-green-500 text-white px-3 py-1 rounded-full text-xs font-semibold">
             Local
           </div>
         )}
+        {/* Save Button */}
+        <button
+          onClick={handleSaveToggle}
+          disabled={saving}
+          className="absolute top-3 right-3 bg-white/90 hover:bg-white dark:bg-gray-800/90 dark:hover:bg-gray-800 p-2 rounded-full shadow-lg transition-all disabled:opacity-50"
+          title={saved ? 'Remove from favorites' : 'Add to favorites'}
+        >
+          {saved ? (
+            <svg className="w-5 h-5 text-yellow-500 fill-current" viewBox="0 0 24 24">
+              <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" />
+            </svg>
+          ) : (
+            <svg className="w-5 h-5 text-gray-600 dark:text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
+            </svg>
+          )}
+        </button>
       </div>
 
       {/* Content Section */}

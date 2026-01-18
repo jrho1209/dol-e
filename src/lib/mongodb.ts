@@ -43,4 +43,5 @@ export async function getDatabase(): Promise<Db> {
   return client.db(config.dbName);
 }
 
+export default clientPromise;
 export { clientPromise };

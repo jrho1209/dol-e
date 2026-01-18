@@ -3,6 +3,7 @@ import { Quicksand, Inter } from "next/font/google";
 import "./globals.css";
 import Navbar from "@/components/layout/Navbar";
 import Footer from "@/components/layout/Footer";
+import SessionProvider from "@/components/auth/SessionProvider";
 
 const quicksand = Quicksand({
   variable: "--font-quicksand",
@@ -33,9 +34,11 @@ export default function RootLayout({
       <body
         className={`${quicksand.variable} ${inter.variable} antialiased`}
       >
-        <Navbar />
-        {children}
-        <Footer />
+        <SessionProvider>
+          <Navbar />
+          {children}
+          <Footer />
+        </SessionProvider>
       </body>
     </html>
   );
