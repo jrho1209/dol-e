@@ -1,0 +1,158 @@
+'use client';
+
+import { useState, useRef, useEffect } from 'react';
+import ChatMessage from './ChatMessage';
+import ChatInput from './ChatInput';
+import { ChatMessage as ChatMessageType } from '@/lib/types';
+
+const promptExamples = [
+  "Recommend authentic Korean restaurants near Daejeon Station",
+  "Find cozy cafes with good WiFi in Dunsan-dong",
+  "Suggest budget-friendly accommodations in downtown Daejeon"
+];
+
+export default function Chat() {
+  const [messages, setMessages] = useState<ChatMessageType[]>([
+    {
+      role: 'assistant',
+      content: "Hello! I'm your local guide to Daejeon. I can help you discover amazing restaurants, cafes, accommodations, and attractions in the city. What brings you to Daejeon, or what would you like to explore?",
+      timestamp: new Date(),
+    },
+  ]);
+  const [isLoading, setIsLoading] = useState(false);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+  
+  // Check if this is the first interaction (only initial assistant message)
+  const isFirstInteraction = messages.length === 1 && messages[0].role === 'assistant';
+
+  const scrollToBottom = () => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  };
+
+  useEffect(() => {
+    scrollToBottom();
+  }, [messages]);
+
+  const handleSend = async (content: string) => {
+    // Add user message
+    const userMessage: ChatMessageType = {
+      role: 'user',
+      content,
+      timestamp: new Date(),
+    };
+
+    setMessages((prev) => [...prev, userMessage]);
+    setIsLoading(true);
+
+    try {
+      // Call chat API
+      const response = await fetch('/api/chat', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          messages: [...messages, userMessage].map((m) => ({
+            role: m.role,
+            content: m.content,
+          })),
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to get response');
+      }
+
+      // Parse JSON response
+      const data = await response.json();
+      
+      console.log('API Response:', data); // Debug log
+      
+      // Add assistant message with structured data
+      setMessages((prev) => [
+        ...prev,
+        {
+          role: 'assistant',
+          content: data.text || "I'm sorry, I couldn't generate a response.",
+          places: data.places || [],
+          timestamp: new Date(),
+        },
+      ]);
+    } catch (error) {
+      console.error('Error sending message:', error);
+      setMessages((prev) => [
+        ...prev,
+        {
+          role: 'assistant',
+          content: "I'm sorry, I encountered an error. Please try again.",
+          timestamp: new Date(),
+        },
+      ]);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  return (
+    <div className="flex flex-col h-full bg-gray-50 dark:bg-black">
+      {/* Header */}
+      <div className="bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700 px-6 py-4">
+        <h1 className="text-xl font-semibold text-gray-900 dark:text-white" style={{ fontFamily: 'var(--font-quicksand)' }}>
+          DOL-E - Daejeon Local Guide
+        </h1>
+        <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+          Discover authentic local experiences in Daejeon
+        </p>
+      </div>
+
+      {/* Messages */}
+      <div className="flex-1 overflow-y-auto px-6 py-4">
+        <div className="max-w-3xl mx-auto">
+          {messages.map((message, index) => (
+            <ChatMessage key={index} message={message} />
+          ))}
+          
+          {/* Prompt Examples - Show only on first interaction */}
+          {isFirstInteraction && !isLoading && (
+            <div className="mt-8 space-y-3">
+              <p className="text-sm text-gray-500 dark:text-gray-400 text-center mb-4">
+                Try one of these:
+              </p>
+              <div className="grid gap-3">
+                {promptExamples.map((example, index) => (
+                  <button
+                    key={index}
+                    onClick={() => handleSend(example)}
+                    className="w-full p-4 text-left bg-white dark:bg-gray-800 border-2 border-gray-200 dark:border-gray-700 rounded-xl hover:border-yellow-400 dark:hover:border-yellow-500 hover:shadow-md transition-all duration-200 cursor-pointer group"
+                  >
+                    <span className="text-sm text-gray-700 dark:text-gray-300 group-hover:text-gray-900 dark:group-hover:text-white">
+                      {example}
+                    </span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+          
+          {isLoading && messages[messages.length - 1]?.role === 'user' && (
+            <div className="flex justify-start mb-4">
+              <div className="bg-gray-100 dark:bg-gray-800 rounded-2xl px-4 py-3">
+                <div className="flex gap-1">
+                  <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
+                  <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
+                  <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
+                </div>
+              </div>
+            </div>
+          )}
+          <div ref={messagesEndRef} />
+        </div>
+      </div>
+
+      {/* Input */}
+      <div className="max-w-3xl w-full mx-auto">
+        <ChatInput onSend={handleSend} disabled={isLoading} />
+      </div>
+    </div>
+  );
+}
