@@ -1,6 +1,6 @@
 import { Place } from '@/lib/types';
 import Image from 'next/image';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useSession } from 'next-auth/react';
 
 interface PlaceCardProps {
@@ -14,6 +14,11 @@ export default function PlaceCard({ place, isSaved = false, onSaveToggle }: Plac
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(isSaved);
   const { data: session } = useSession();
+  
+  // isSaved prop 변경 시 saved state 업데이트
+  useEffect(() => {
+    setSaved(isSaved);
+  }, [isSaved]);
   
   const priceLabels = ['$', '$$', '$$$', '$$$$'];
   const priceText = place.price_range ? priceLabels[place.price_range - 1] : '';

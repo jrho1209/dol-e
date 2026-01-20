@@ -31,8 +31,12 @@ export async function GET(request: NextRequest) {
     // favorites와 places 결합
     const result = favorites.map((fav) => {
       const place = places.find((p) => p._id.equals(fav.placeId));
+      if (place) {
+        // MongoDB _id를 id로 변환
+        place.id = place._id.toString();
+      }
       return {
-        favoriteId: fav._id,
+        favoriteId: fav._id.toString(),
         place: place,
         notes: fav.notes,
         tags: fav.tags,

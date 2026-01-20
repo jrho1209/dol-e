@@ -41,6 +41,7 @@ export default function Chat() {
       if (response.ok) {
         const data = await response.json();
         const ids = new Set(data.favorites.map((f: any) => f.place.id));
+        console.log('Fetched favorite IDs:', Array.from(ids));
         setSavedPlaceIds(ids);
       }
     } catch (error) {
@@ -49,6 +50,7 @@ export default function Chat() {
   };
 
   const handleSaveToggle = (placeId: string, isSaved: boolean) => {
+    console.log('handleSaveToggle called:', placeId, isSaved);
     setSavedPlaceIds((prev) => {
       const newSet = new Set(prev);
       if (isSaved) {
@@ -56,6 +58,7 @@ export default function Chat() {
       } else {
         newSet.delete(placeId);
       }
+      console.log('Updated favorite IDs:', Array.from(newSet));
       return newSet;
     });
   };
