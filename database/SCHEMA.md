@@ -209,7 +209,59 @@
 
 ---
 
-### 6. search_logs
+### 6. itineraries
+사용자의 여행 일정을 저장합니다.
+
+```javascript
+{
+  _id: ObjectId,
+  userId: ObjectId (ref: users, required),
+  title: String (required), // e.g., "3-Day Daejeon Adventure"
+  description: String,
+  days: [{
+    day: Number, // 1, 2, 3...
+    date: String, // "2026-01-25" (optional)
+    title: String, // "Day 1: Cultural Exploration"
+    items: [{
+      time: String, // "09:00"
+      duration: Number, // in minutes
+      placeId: ObjectId (ref: places),
+      place: Object, // Embedded place data for quick access
+      notes: String,
+      transportation: {
+        method: String, // "walk" | "subway" | "bus" | "taxi"
+        duration: Number, // in minutes
+        cost: Number,
+      }
+    }],
+    totalBudget: Number,
+  }],
+  totalDays: Number,
+  budget: {
+    total: Number,
+    perDay: Number,
+    currency: String, // "KRW"
+  },
+  preferences: {
+    focusCategories: [String], // ["restaurant", "cafe", "attraction"]
+    pace: String, // "relaxed" | "moderate" | "packed"
+  },
+  isPublic: Boolean, // Whether to share with other users
+  likes: Number,
+  createdAt: Date,
+  updatedAt: Date,
+}
+```
+
+**Indexes:**
+- `userId`: 1
+- `isPublic`: 1
+- `createdAt`: -1
+- Compound index: `{userId: 1, createdAt: -1}`
+
+---
+
+### 7. search_logs
 검색 로그 및 분석 데이터를 저장합니다.
 
 ```javascript

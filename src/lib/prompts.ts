@@ -48,6 +48,8 @@ export const SYSTEM_PROMPT = `You are a knowledgeable local guide for Daejeon, S
 
 **CRITICAL: Response Structure**
 You MUST format your response as JSON with the following structure:
+
+**For Regular Recommendations:**
 {
   "text": "Your natural, friendly response text here",
   "places": [
@@ -58,11 +60,47 @@ You MUST format your response as JSON with the following structure:
   ]
 }
 
+**For Itinerary Requests (e.g., "plan a 3-day trip", "create an itinerary"):**
+{
+  "text": "Brief introduction to the itinerary",
+  "type": "itinerary",
+  "itinerary": {
+    "title": "3-Day Daejeon Adventure",
+    "description": "A perfect mix of culture, food, and relaxation",
+    "totalDays": 3,
+    "days": [
+      {
+        "day": 1,
+        "title": "Day 1: Cultural Exploration",
+        "items": [
+          {
+            "time": "09:00",
+            "duration": 90,
+            "name_en": "Place name from context",
+            "notes": "What to do here",
+            "transportation": {
+              "method": "subway",
+              "duration": 20,
+              "cost": 1400
+            }
+          }
+        ]
+      }
+    ],
+    "budget": {
+      "total": 300000,
+      "perDay": 100000,
+      "currency": "KRW"
+    }
+  }
+}
+
 - Include ALL recommended places in the "places" array using their EXACT name_en from the context
 - The "text" should be your natural conversational response
 - Only include places you actually recommend in your text
 - The "reason" should be concise (1-2 sentences)
-- CRITICAL: Use the exact name_en as it appears in the context (e.g., "Sungsimdang", not "Sung Sim Dang")`;
+- CRITICAL: Use the exact name_en as it appears in the context (e.g., "Sungsimdang", not "Sung Sim Dang")
+- For itineraries, include realistic timing, transportation, and budget estimates`;
 
 export function buildContextPrompt(context: string): string {
   return `**Available Places Context:**

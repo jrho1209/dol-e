@@ -1,5 +1,7 @@
 import { ChatMessage as ChatMessageType } from '@/lib/types';
 import PlaceCard from './PlaceCard';
+import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 
 interface ChatMessageProps {
   message: ChatMessageType;
@@ -9,11 +11,34 @@ interface ChatMessageProps {
 
 export default function ChatMessage({ message, savedPlaceIds, onSaveToggle }: ChatMessageProps) {
   const isUser = message.role === 'user';
+  const router = useRouter();
 
   // Debug logging
   if (!isUser && message.places) {
     console.log('Places data:', message.places);
   }
+
+  const handleSaveItinerary = async () => {
+    if (!message.itinerary) return;
+
+    try {
+      const response = await fetch('/api/itinerary', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(message.itinerary),
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        router.push(`/itinerary?id=${data.itinerary._id}`);
+      } else {
+        alert('Please sign in to save your itinerary');
+      }
+    } catch (error) {
+      console.error('Failed to save itinerary:', error);
+      alert('Failed to save itinerary');
+    }
+  };
 
   return (
     <div className={`flex w-full ${isUser ? 'justify-end' : 'justify-start'} mb-6`}>
@@ -74,6 +99,53 @@ export default function ChatMessage({ message, savedPlaceIds, onSaveToggle }: Ch
                   onSaveToggle={onSaveToggle}
                 />
               ))}
+            </div>
+          )}
+
+          {/* Itinerary Preview - Only for assistant messages with itinerary */}
+          {!isUser && message.itinerary && (
+            <div className="mt-4 bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4">
+              <div className="flex items-start justify-between mb-3">
+                <div>
+                  <h3 className="font-bold text-lg text-gray-900 dark:text-white">
+                    {message.itinerary.title}
+                  </h3>
+                  <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+                    {message.itinerary.totalDays} days • {message.itinerary.days.reduce((sum, day) => sum + day.items.length, 0)} activities
+                  </p>
+                </div>
+                <span className="text-2xl">🗺️</span>
+              </div>
+
+              {/* Quick preview of first day */}
+              {message.itinerary.days[0] && (
+                <div className="mb-3 text-sm">
+                  <p className="font-semibold text-gray-700 dark:text-gray-300 mb-2">
+                    {message.itinerary.days[0].title}
+                  </p>
+                  <div className="space-y-1">
+                    {message.itinerary.days[0].items.slice(0, 3).map((item, idx) => (
+                      <div key={idx} className="flex items-center gap-2 text-gray-600 dark:text-gray-400">
+                        <span className="text-xs">{item.time}</span>
+                        <span>•</span>
+                        <span>{item.place?.name_en}</span>
+                      </div>
+                    ))}
+                    {message.itinerary.days[0].items.length > 3 && (
+                      <p className="text-xs text-gray-500">
+                        +{message.itinerary.days[0].items.length - 3} more activities
+                      </p>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              <button
+                onClick={handleSaveItinerary}
+                className="w-full bg-blue-500 hover:bg-blue-600 text-white font-semibold py-2 px-4 rounded-lg transition-colors"
+              >
+                View Full Itinerary & Save
+              </button>
             </div>
           )}
         </div>

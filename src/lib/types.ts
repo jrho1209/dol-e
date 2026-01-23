@@ -36,6 +36,7 @@ export interface ChatMessage {
   role: 'user' | 'assistant' | 'system';
   content: string;
   places?: Place[]; // Structured place data for card display
+  itinerary?: Itinerary; // Travel itinerary data
   timestamp?: Date;
 }
 
@@ -48,4 +49,45 @@ export interface RAGContext {
   query: string;
   results: SearchResult[];
   systemPrompt: string;
+}
+
+// Itinerary types
+export interface ItineraryItem {
+  time: string; // e.g., "09:00", "12:30"
+  duration: number; // in minutes
+  place: Place;
+  notes?: string;
+  transportation?: {
+    method: 'walk' | 'subway' | 'bus' | 'taxi';
+    duration: number; // in minutes
+    cost?: number;
+  };
+}
+
+export interface ItineraryDay {
+  day: number;
+  date?: string; // e.g., "2026-01-25"
+  title?: string; // e.g., "Day 1: Cultural Exploration"
+  items: ItineraryItem[];
+  totalBudget?: number;
+}
+
+export interface Itinerary {
+  _id?: string;
+  userId?: string;
+  title: string;
+  description?: string;
+  days: ItineraryDay[];
+  totalDays: number;
+  budget?: {
+    total: number;
+    perDay: number;
+    currency: string;
+  };
+  preferences?: {
+    focusCategories?: string[]; // ["restaurant", "cafe", "attraction"]
+    pace?: 'relaxed' | 'moderate' | 'packed';
+  };
+  createdAt?: Date;
+  updatedAt?: Date;
 }

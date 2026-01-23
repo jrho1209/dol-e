@@ -9,6 +9,23 @@ const openai = new OpenAI({
 
 export async function POST(req: NextRequest) {
   try {
+    // Check environment variables
+    if (!process.env.OPENAI_API_KEY) {
+      console.error('OPENAI_API_KEY is not set');
+      return NextResponse.json(
+        { error: 'Server configuration error: OpenAI API key missing' },
+        { status: 500 }
+      );
+    }
+
+    if (!process.env.MONGODB_URI) {
+      console.error('MONGODB_URI is not set');
+      return NextResponse.json(
+        { error: 'Server configuration error: Database connection missing' },
+        { status: 500 }
+      );
+    }
+
     const body = await req.json();
     const { messages } = body;
 
@@ -72,6 +89,30 @@ export async function POST(req: NextRequest) {
       const parsed = JSON.parse(content);
       console.log('Parsed JSON:', parsed); // Debug log
       
+      // Check if this is an itinerary response
+      if (parsed.type === 'itinerary' && parsed.itinerary) {
+        console.log('Itinerary response detected');
+        
+        // Map place names in itinerary to full place objects
+        const itinerary = parsed.itinerary;
+        itinerary.days = itinerary.days.map((day: any) => ({
+          ...day,
+          items: day.items.map((item: any) => {
+            const fullPlace = results.find(r => r.place.name_en === item.name_en)?.place;
+            return {
+              ...item,
+              place: fullPlace || null,
+            };
+          }).filter((item: any) => item.place !== null),
+        }));
+        
+        return NextResponse.json({
+          text: parsed.text,
+          itinerary,
+        });
+      }
+      
+      // Regular place recommendations
       const text = parsed.text || content;
       const placeReferences = parsed.places || [];
       
@@ -102,8 +143,20 @@ export async function POST(req: NextRequest) {
     }
   } catch (error) {
     console.error('Error in chat API:', error);
+    
+    // Log more details for debugging
+    if (error instanceof Error) {
+      console.error('Error name:', error.name);
+      console.error('Error message:', error.message);
+      console.error('Error stack:', error.stack);
+    }
+    
     return NextResponse.json(
-      { error: 'Internal server error', details: error instanceof Error ? error.message : 'Unknown error' },
+      { 
+        error: 'Internal server error', 
+        details: error instanceof Error ? error.message : 'Unknown error',
+        type: error instanceof Error ? error.name : 'Unknown'
+      },
       { status: 500 }
     );
   }
