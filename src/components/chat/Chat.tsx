@@ -4,6 +4,7 @@ import { useState, useRef, useEffect } from 'react';
 import { useSession } from 'next-auth/react';
 import ChatMessage from './ChatMessage';
 import ChatInput from './ChatInput';
+import ChatSidebar from './ChatSidebar';
 import { ChatMessage as ChatMessageType } from '@/lib/types';
 
 const promptExamples = [
@@ -13,18 +14,20 @@ const promptExamples = [
   "Create a 2-day itinerary focusing on cultural sites and cafes"
 ];
 
+const initialMessage: ChatMessageType = {
+  role: 'assistant',
+  content: "Hello! I'm your local guide to Daejeon. I can help you discover amazing restaurants, cafes, accommodations, and attractions in the city. What brings you to Daejeon, or what would you like to explore?",
+  timestamp: new Date(),
+};
+
 export default function Chat() {
   const { data: session } = useSession();
-  const [messages, setMessages] = useState<ChatMessageType[]>([
-    {
-      role: 'assistant',
-      content: "Hello! I'm your local guide to Daejeon. I can help you discover amazing restaurants, cafes, accommodations, and attractions in the city. What brings you to Daejeon, or what would you like to explore?",
-      timestamp: new Date(),
-    },
-  ]);
+  const [messages, setMessages] = useState<ChatMessageType[]>([initialMessage]);
   const [isLoading, setIsLoading] = useState(false);
   const [savedPlaceIds, setSavedPlaceIds] = useState<Set<string>>(new Set());
   const [conversationId, setConversationId] = useState<string | null>(null);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [sidebarKey, setSidebarKey] = useState(0); // Force sidebar refresh
   const messagesEndRef = useRef<HTMLDivElement>(null);
   
   // Check if this is the first interaction (only initial assistant message)
@@ -34,7 +37,6 @@ export default function Chat() {
   useEffect(() => {
     if (session) {
       fetchFavorites();
-      loadConversation();
     }
   }, [session]);
 
@@ -45,23 +47,22 @@ export default function Chat() {
     }
   }, [messages, session]);
 
-  const loadConversation = async () => {
+  const loadConversation = async (conversationId: string) => {
     try {
-      const response = await fetch('/api/conversations');
+      const response = await fetch(`/api/conversations/${conversationId}`);
       if (response.ok) {
         const data = await response.json();
-        if (data.conversations.length > 0) {
-          const latestConversation = data.conversations[0];
-          setConversationId(latestConversation._id);
-          
-          // Clean up messages to filter out invalid places
-          const cleanedMessages = latestConversation.messages.map((msg: any) => ({
-            ...msg,
-            places: msg.places ? msg.places.filter((p: any) => p && p.id) : undefined,
-          }));
-          
-          setMessages(cleanedMessages);
-        }
+        setConversationId(data.conversation._id);
+        
+        // Clean up messages to filter out invalid places
+        const cleanedMessages = data.conversation.messages.map((msg: any) => ({
+          ...msg,
+          timestamp: new Date(msg.timestamp),
+          places: msg.places ? msg.places.filter((p: any) => p && p.id) : undefined,
+        }));
+        
+        setMessages(cleanedMessages);
+        setIsSidebarOpen(false); // Close sidebar on mobile after selection
       }
     } catch (error) {
       console.error('Failed to load conversation:', error);
@@ -70,17 +71,26 @@ export default function Chat() {
 
   const saveConversation = async () => {
     try {
+      // Generate title from first user message
+      const firstUserMessage = messages.find(m => m.role === 'user');
+      const title = firstUserMessage 
+        ? firstUserMessage.content.substring(0, 50) 
+        : 'New Conversation';
+
       const response = await fetch('/api/conversations', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           conversationId,
           messages,
+          title,
         }),
       });
       const data = await response.json();
       if (data.conversationId && !conversationId) {
         setConversationId(data.conversationId);
+        // Refresh sidebar to show new conversation
+        setSidebarKey(prev => prev + 1);
       }
     } catch (error) {
       console.error('Failed to save conversation:', error);
@@ -88,12 +98,17 @@ export default function Chat() {
   };
 
   const startNewConversation = () => {
-    setMessages([{
-      role: 'assistant',
-      content: "Hello! I'm your local guide to Daejeon. I can help you discover amazing restaurants, cafes, accommodations, and attractions in the city. What brings you to Daejeon, or what would you like to explore?",
-      timestamp: new Date(),
-    }]);
+    setMessages([initialMessage]);
     setConversationId(null);
+    setIsSidebarOpen(false); // Close sidebar on mobile
+  };
+
+  const handleSelectConversation = (id: string | null) => {
+    if (id) {
+      loadConversation(id);
+    } else {
+      startNewConversation();
+    }
   };
 
   const fetchFavorites = async () => {
@@ -205,31 +220,35 @@ export default function Chat() {
   };
 
   return (
-    <div className="flex flex-col h-full bg-gray-50 dark:bg-black">
-      {/* Header */}
-      <div className="bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700 px-6 py-4">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-xl font-semibold text-gray-900 dark:text-white" style={{ fontFamily: 'var(--font-quicksand)' }}>
-              DOL-E - Daejeon Local Guide
-            </h1>
-            <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
-              Discover authentic local experiences in Daejeon
-            </p>
+    <div className="flex h-full">
+      {/* Sidebar */}
+      {session && (
+        <ChatSidebar
+          key={sidebarKey}
+          currentConversationId={conversationId}
+          onSelectConversation={handleSelectConversation}
+          onNewChat={startNewConversation}
+          isOpen={isSidebarOpen}
+          onToggle={() => setIsSidebarOpen(!isSidebarOpen)}
+          refreshKey={sidebarKey}
+        />
+      )}
+
+      {/* Main Chat Area */}
+      <div className={`flex flex-col flex-1 bg-gray-50 dark:bg-black transition-all duration-300 ${session ? 'lg:ml-72' : ''}`}>
+        {/* Header */}
+        <div className="bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700 px-6 py-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-xl font-semibold text-gray-900 dark:text-white" style={{ fontFamily: 'var(--font-quicksand)' }}>
+                DOL-E - Daejeon Local Guide
+              </h1>
+              <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+                Discover authentic local experiences in Daejeon
+              </p>
+            </div>
           </div>
-          {messages.length > 1 && (
-            <button
-              onClick={startNewConversation}
-              className="flex items-center gap-2 px-4 py-2 bg-yellow-500 hover:bg-yellow-600 text-white rounded-lg transition-colors font-semibold"
-            >
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-              </svg>
-              New Chat
-            </button>
-          )}
         </div>
-      </div>
 
       {/* Messages */}
       <div className="flex-1 overflow-y-auto px-6 py-4">
@@ -280,9 +299,10 @@ export default function Chat() {
         </div>
       </div>
 
-      {/* Input */}
-      <div className="max-w-3xl w-full mx-auto">
-        <ChatInput onSend={handleSend} disabled={isLoading} />
+        {/* Input */}
+        <div className="max-w-3xl w-full mx-auto">
+          <ChatInput onSend={handleSend} disabled={isLoading} />
+        </div>
       </div>
     </div>
   );
