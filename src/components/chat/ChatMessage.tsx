@@ -91,7 +91,7 @@ export default function ChatMessage({ message, savedPlaceIds, onSaveToggle }: Ch
           {/* Place Cards - Only for assistant messages */}
           {!isUser && message.places && message.places.length > 0 && (
             <div className="mt-4 space-y-3">
-              {message.places.map((place) => (
+              {message.places.filter(place => place && place.id).map((place) => (
                 <PlaceCard 
                   key={place.id} 
                   place={place}

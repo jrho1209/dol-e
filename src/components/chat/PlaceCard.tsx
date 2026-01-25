@@ -15,6 +15,12 @@ export default function PlaceCard({ place, isSaved = false, onSaveToggle }: Plac
   const [saved, setSaved] = useState(isSaved);
   const { data: session } = useSession();
   
+  // Guard against undefined place
+  if (!place) {
+    console.error('PlaceCard received undefined place');
+    return null;
+  }
+  
   // isSaved prop 변경 시 saved state 업데이트
   useEffect(() => {
     setSaved(isSaved);

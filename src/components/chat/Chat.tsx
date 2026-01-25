@@ -53,7 +53,14 @@ export default function Chat() {
         if (data.conversations.length > 0) {
           const latestConversation = data.conversations[0];
           setConversationId(latestConversation._id);
-          setMessages(latestConversation.messages);
+          
+          // Clean up messages to filter out invalid places
+          const cleanedMessages = latestConversation.messages.map((msg: any) => ({
+            ...msg,
+            places: msg.places ? msg.places.filter((p: any) => p && p.id) : undefined,
+          }));
+          
+          setMessages(cleanedMessages);
         }
       }
     } catch (error) {
@@ -162,13 +169,18 @@ export default function Chat() {
       
       console.log('API Response:', data); // Debug log
       
+      // Filter out any null/undefined places
+      const validPlaces = (data.places || []).filter((p: any) => p && p.id);
+      
+      console.log('Valid places after filtering:', validPlaces.length); // Debug log
+      
       // Add assistant message with structured data
       setMessages((prev) => [
         ...prev,
         {
           role: 'assistant',
           content: data.text || "I'm sorry, I couldn't generate a response.",
-          places: data.places || [],
+          places: validPlaces,
           itinerary: data.itinerary || undefined,
           timestamp: new Date(),
         },
