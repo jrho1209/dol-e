@@ -89,7 +89,7 @@ export default function Chat() {
     setConversationId(null);
   };
 
-  const fetchFavorites = async () {
+  const fetchFavorites = async () => {
     try {
       const response = await fetch('/api/favorites');
       if (response.ok) {
