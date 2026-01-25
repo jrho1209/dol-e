@@ -63,18 +63,18 @@ export default function Chat() {
 
   const saveConversation = async () => {
     try {
-      await fetch('/api/conversations', {
+      const response = await fetch('/api/conversations', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           conversationId,
           messages,
         }),
-      }).then(res => res.json()).then(data => {
-        if (data.conversationId && !conversationId) {
-          setConversationId(data.conversationId);
-        }
       });
+      const data = await response.json();
+      if (data.conversationId && !conversationId) {
+        setConversationId(data.conversationId);
+      }
     } catch (error) {
       console.error('Failed to save conversation:', error);
     }
