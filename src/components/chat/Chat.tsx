@@ -101,7 +101,11 @@ export default function Chat() {
       const response = await fetch('/api/favorites');
       if (response.ok) {
         const data = await response.json();
-        const ids = new Set<string>(data.favorites.map((f: any) => f.place.id as string));
+        const ids = new Set<string>(
+          data.favorites
+            .filter((f: any) => f && f.place && f.place.id)
+            .map((f: any) => f.place.id as string)
+        );
         console.log('Fetched favorite IDs:', Array.from(ids));
         setSavedPlaceIds(ids);
       }

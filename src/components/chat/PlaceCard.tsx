@@ -15,9 +15,8 @@ export default function PlaceCard({ place, isSaved = false, onSaveToggle }: Plac
   const [saved, setSaved] = useState(isSaved);
   const { data: session } = useSession();
   
-  // Guard against undefined place
-  if (!place) {
-    console.error('PlaceCard received undefined place');
+  // Guard against undefined place (should not happen due to filtering in ChatMessage)
+  if (!place || typeof place !== 'object' || !place.id) {
     return null;
   }
   

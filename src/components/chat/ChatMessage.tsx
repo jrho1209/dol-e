@@ -91,14 +91,22 @@ export default function ChatMessage({ message, savedPlaceIds, onSaveToggle }: Ch
           {/* Place Cards - Only for assistant messages */}
           {!isUser && message.places && message.places.length > 0 && (
             <div className="mt-4 space-y-3">
-              {message.places.filter(place => place && place.id).map((place) => (
-                <PlaceCard 
-                  key={place.id} 
-                  place={place}
-                  isSaved={savedPlaceIds?.has(place.id)}
-                  onSaveToggle={onSaveToggle}
-                />
-              ))}
+              {message.places
+                .filter(place => {
+                  const isValid = place && typeof place === 'object' && place.id;
+                  if (!isValid) {
+                    console.warn('Filtered out invalid place:', place);
+                  }
+                  return isValid;
+                })
+                .map((place) => (
+                  <PlaceCard 
+                    key={place.id} 
+                    place={place}
+                    isSaved={savedPlaceIds?.has(place.id)}
+                    onSaveToggle={onSaveToggle}
+                  />
+                ))}
             </div>
           )}
 
