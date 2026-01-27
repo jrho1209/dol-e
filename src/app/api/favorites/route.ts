@@ -17,7 +17,7 @@ export async function GET(request: NextRequest) {
     
     const favorites = await db
       .collection('favorites')
-      .find({ userId: new ObjectId(session.user.id) })
+      .find({ userId: session.user.id })
       .sort({ createdAt: -1 })
       .toArray();
 
@@ -77,7 +77,7 @@ export async function POST(request: NextRequest) {
 
     // 이미 저장되어 있는지 확인
     const existing = await favoritesCollection.findOne({
-      userId: new ObjectId(session.user.id),
+      userId: session.user.id,
       placeId: new ObjectId(placeId),
     });
 
@@ -90,7 +90,7 @@ export async function POST(request: NextRequest) {
 
     // 즐겨찾기 추가
     const result = await favoritesCollection.insertOne({
-      userId: new ObjectId(session.user.id),
+      userId: session.user.id,
       placeId: new ObjectId(placeId),
       notes: notes || '',
       tags: tags || ['want_to_visit'],
@@ -135,7 +135,7 @@ export async function DELETE(request: NextRequest) {
     const db = client.db(process.env.MONGODB_DB_NAME);
 
     const result = await db.collection('favorites').deleteOne({
-      userId: new ObjectId(session.user.id),
+      userId: session.user.id,
       placeId: new ObjectId(placeId),
     });
 

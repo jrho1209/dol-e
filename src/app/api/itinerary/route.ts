@@ -21,7 +21,7 @@ export async function GET(req: NextRequest) {
     const itinerariesCollection = db.collection('itineraries');
 
     const itineraries = await itinerariesCollection
-      .find({ userId: new ObjectId(session.user.id) })
+      .find({ userId: session.user.id })
       .sort({ createdAt: -1 })
       .toArray();
 
@@ -29,7 +29,6 @@ export async function GET(req: NextRequest) {
       itineraries: itineraries.map(it => ({
         ...it,
         _id: it._id.toString(),
-        userId: it.userId.toString(),
       })),
     });
   } catch (error) {
@@ -68,7 +67,7 @@ export async function POST(req: NextRequest) {
     const itinerariesCollection = db.collection('itineraries');
 
     const newItinerary = {
-      userId: new ObjectId(session.user.id),
+      userId: session.user.id,
       title,
       description,
       days,
@@ -87,7 +86,6 @@ export async function POST(req: NextRequest) {
       itinerary: {
         ...newItinerary,
         _id: result.insertedId.toString(),
-        userId: newItinerary.userId.toString(),
       },
     });
   } catch (error) {
@@ -128,7 +126,7 @@ export async function DELETE(req: NextRequest) {
     // Ensure user owns this itinerary
     const result = await itinerariesCollection.deleteOne({
       _id: new ObjectId(itineraryId),
-      userId: new ObjectId(session.user.id),
+      userId: session.user.id,
     });
 
     if (result.deletedCount === 0) {

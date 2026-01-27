@@ -26,7 +26,7 @@ export async function GET(
 
     const conversation = await conversationsCollection.findOne({
       _id: new ObjectId(params.id),
-      userId: new ObjectId(session.user.id),
+      userId: session.user.id,
     });
 
     if (!conversation) {
@@ -40,7 +40,6 @@ export async function GET(
       conversation: {
         ...conversation,
         _id: conversation._id.toString(),
-        userId: conversation.userId.toString(),
       },
     });
   } catch (error) {
@@ -74,7 +73,7 @@ export async function DELETE(
 
     const result = await conversationsCollection.deleteOne({
       _id: new ObjectId(params.id),
-      userId: new ObjectId(session.user.id),
+      userId: session.user.id,
     });
 
     if (result.deletedCount === 0) {

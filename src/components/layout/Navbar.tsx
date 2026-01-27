@@ -35,10 +35,10 @@ export default function Navbar() {
               Home
             </Link>
             <Link
-              href="/features"
+              href="/about"
               className="text-gray-600 hover:text-gray-900 dark:text-gray-300 dark:hover:text-white transition-colors"
             >
-              Features
+              About Us
             </Link>
             <Link
               href="/pricing"
@@ -64,6 +64,15 @@ export default function Navbar() {
                   Favorites
                 </Link>
                 <Link
+                  href="/diary"
+                  className="text-gray-600 hover:text-gray-900 dark:text-gray-300 dark:hover:text-white transition-colors flex items-center gap-1"
+                >
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+                  </svg>
+                  Diary
+                </Link>
+                <Link
                   href="/itinerary"
                   className="text-gray-600 hover:text-gray-900 dark:text-gray-300 dark:hover:text-white transition-colors flex items-center gap-1"
                 >
@@ -82,24 +91,29 @@ export default function Navbar() {
               <div className="text-gray-600">Loading...</div>
             ) : session ? (
               <>
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-3 bg-gray-50 dark:bg-gray-800 px-3 py-2 rounded-full">
                   {session.user?.image && (
-                    <Image
-                      src={session.user.image}
-                      alt="Profile"
-                      width={32}
-                      height={32}
-                      className="rounded-full"
-                    />
+                    <div className="relative">
+                      <Image
+                        src={session.user.image}
+                        alt="Profile"
+                        width={36}
+                        height={36}
+                        className="rounded-full ring-2 ring-yellow-500 ring-offset-2"
+                      />
+                    </div>
                   )}
-                  <span className="text-gray-700 dark:text-gray-300">
-                    {session.user?.name}
+                  <span className="text-gray-900 dark:text-gray-100 font-medium">
+                    {session.user?.name?.split(' ')[0]}
                   </span>
                 </div>
                 <button
                   onClick={() => signOut()}
-                  className="text-gray-600 hover:text-gray-900 dark:text-gray-300 dark:hover:text-white transition-colors"
+                  className="flex items-center gap-2 bg-gradient-to-r from-rose-500 to-red-500 hover:from-rose-600 hover:to-red-600 text-white px-5 py-2.5 rounded-full shadow-md hover:shadow-xl transition-all duration-300 font-medium transform hover:scale-105"
                 >
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                  </svg>
                   Logout
                 </button>
               </>
@@ -162,11 +176,11 @@ export default function Navbar() {
               Home
             </Link>
             <Link
-              href="/features"
+              href="/about"
               className="block text-gray-600 hover:text-gray-900 dark:text-gray-300 dark:hover:text-white"
               onClick={() => setMobileMenuOpen(false)}
             >
-              Features
+              About Us
             </Link>
             <Link
               href="/pricing"
@@ -192,6 +206,13 @@ export default function Navbar() {
                   ❤️ Favorites
                 </Link>
                 <Link
+                  href="/diary"
+                  className="block text-gray-600 hover:text-gray-900 dark:text-gray-300 dark:hover:text-white"
+                  onClick={() => setMobileMenuOpen(false)}
+                >
+                  📔 Travel Diary
+                </Link>
+                <Link
                   href="/itinerary"
                   className="block text-gray-600 hover:text-gray-900 dark:text-gray-300 dark:hover:text-white"
                   onClick={() => setMobileMenuOpen(false)}
@@ -205,18 +226,20 @@ export default function Navbar() {
                 <div className="text-center text-gray-600">Loading...</div>
               ) : session ? (
                 <>
-                  <div className="flex items-center gap-2 justify-center py-2">
+                  <div className="flex items-center gap-3 justify-center py-3 bg-gray-50 dark:bg-gray-800 rounded-full px-4">
                     {session.user?.image && (
-                      <Image
-                        src={session.user.image}
-                        alt="Profile"
-                        width={32}
-                        height={32}
-                        className="rounded-full"
-                      />
+                      <div className="relative">
+                        <Image
+                          src={session.user.image}
+                          alt="Profile"
+                          width={40}
+                          height={40}
+                          className="rounded-full ring-2 ring-yellow-500 ring-offset-2"
+                        />
+                      </div>
                     )}
-                    <span className="text-gray-700 dark:text-gray-300">
-                      {session.user?.name}
+                    <span className="text-gray-900 dark:text-gray-100 font-medium text-lg">
+                      {session.user?.name?.split(' ')[0]}
                     </span>
                   </div>
                   <button
@@ -224,8 +247,11 @@ export default function Navbar() {
                       signOut();
                       setMobileMenuOpen(false);
                     }}
-                    className="text-center py-2 text-gray-600 hover:text-gray-900 dark:text-gray-300"
+                    className="flex items-center justify-center gap-2 bg-gradient-to-r from-rose-500 to-red-500 hover:from-rose-600 hover:to-red-600 text-white px-5 py-2.5 rounded-full shadow-md hover:shadow-xl transition-all duration-300 font-medium"
                   >
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                    </svg>
                     Logout
                   </button>
                 </>

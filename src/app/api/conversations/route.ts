@@ -22,7 +22,7 @@ export async function GET(req: NextRequest) {
 
     // Get all conversations for the user
     const conversations = await conversationsCollection
-      .find({ userId: new ObjectId(session.user.id) })
+      .find({ userId: session.user.id })
       .sort({ updatedAt: -1 })
       .toArray();
 
@@ -30,7 +30,6 @@ export async function GET(req: NextRequest) {
       conversations: conversations.map(conv => ({
         ...conv,
         _id: conv._id.toString(),
-        userId: conv.userId.toString(),
       })),
     });
   } catch (error) {
@@ -66,7 +65,7 @@ export async function POST(req: NextRequest) {
       const result = await conversationsCollection.updateOne(
         { 
           _id: new ObjectId(conversationId),
-          userId: new ObjectId(session.user.id)
+          userId: session.user.id
         },
         {
           $set: {
@@ -91,7 +90,7 @@ export async function POST(req: NextRequest) {
     } else {
       // Create new conversation
       const newConversation = {
-        userId: new ObjectId(session.user.id),
+        userId: session.user.id,
         title: title || messages[0]?.content?.substring(0, 50) || 'New Conversation',
         messages,
         isActive: true,

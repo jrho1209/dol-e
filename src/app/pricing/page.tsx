@@ -1,6 +1,5 @@
 import Link from 'next/link';
 import Navbar from '@/components/layout/Navbar';
-import Footer from '@/components/layout/Footer';
 
 export default function PricingPage() {
   return (
@@ -242,8 +241,6 @@ export default function PricingPage() {
           </div>
         </div>
       </main>
-
-      <Footer />
     </>
   );
 }
