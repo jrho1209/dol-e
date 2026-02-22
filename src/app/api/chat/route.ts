@@ -15,18 +15,30 @@ export async function POST(req: NextRequest) {
     }
 
     const body = await req.json();
-    const messages: UIMessage[] = body.messages ?? [];
+    const rawMessages: unknown[] = body.messages ?? [];
 
-    if (!Array.isArray(messages) || messages.length === 0) {
+    if (!Array.isArray(rawMessages) || rawMessages.length === 0) {
       return new Response(JSON.stringify({ error: 'messages array required' }), { status: 400 });
     }
 
-    // Extract last user message text from UIMessage parts
+    // Normalize messages — support both UIMessage (parts[]) and plain { role, content } formats
+    const messages: UIMessage[] = rawMessages.map((m: unknown) => {
+      const msg = m as { role: string; content?: string; parts?: unknown[]; id?: string };
+      if (msg.parts) return msg as unknown as UIMessage;
+      return {
+        id: msg.id ?? crypto.randomUUID(),
+        role: msg.role as UIMessage['role'],
+        content: msg.content ?? '',
+        parts: [{ type: 'text' as const, text: msg.content ?? '' }],
+      } as UIMessage;
+    });
+
     const lastUserMessage = [...messages].reverse().find((m) => m.role === 'user');
-    const queryText = lastUserMessage?.parts
-      .filter((p) => p.type === 'text')
-      .map((p) => ('text' in p ? p.text : ''))
-      .join('') ?? '';
+    const queryText =
+      lastUserMessage?.parts
+        ?.filter((p) => p.type === 'text')
+        .map((p) => ('text' in p ? p.text : ''))
+        .join('') || '';
 
     if (!queryText) {
       return new Response(JSON.stringify({ error: 'No user message text found' }), { status: 400 });

@@ -14,7 +14,7 @@ import {
   DragStartEvent,
   DragEndEvent,
 } from '@dnd-kit/core';
-import { arrayMove, SortableContext, sortableKeyboardCoordinates } from '@dnd-kit/sortable';
+import { SortableContext, sortableKeyboardCoordinates } from '@dnd-kit/sortable';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 
@@ -175,9 +175,11 @@ function ScheduleItemCard({ item, onDurationChange, onRemove }: {
               >
                 +
               </button>
-              <span className="text-xs text-gray-500 dark:text-gray-500 ml-2">
-                ({item.place.estimatedDuration} recommended)
-              </span>
+              {item.place.estimatedDuration && (
+                <span className="text-xs text-gray-500 dark:text-gray-500 ml-2">
+                  ({item.place.estimatedDuration} recommended)
+                </span>
+              )}
             </div>
           </div>
         </div>
@@ -186,10 +188,23 @@ function ScheduleItemCard({ item, onDurationChange, onRemove }: {
   );
 }
 
-function DropZone({ time }: { time: string }) {
+function DropZone({ time, onManualAdd }: {
+  time: string;
+  onManualAdd: (name: string, category: string, time: string) => void;
+}) {
   const { setNodeRef, isOver } = useSortable({
     id: `drop-zone-${time}`,
   });
+  const [showForm, setShowForm] = useState(false);
+  const [manualName, setManualName] = useState('');
+  const [manualCategory, setManualCategory] = useState('restaurant');
+
+  const handleAdd = () => {
+    if (!manualName.trim()) return;
+    onManualAdd(manualName.trim(), manualCategory, time);
+    setManualName('');
+    setShowForm(false);
+  };
 
   return (
     <div ref={setNodeRef} className="mb-4">
@@ -200,29 +215,175 @@ function DropZone({ time }: { time: string }) {
           </div>
         </div>
         <div className="flex-1">
-          <div 
-            className={`border-2 border-dashed rounded-xl p-8 text-center transition-all ${
-              isOver
-                ? 'border-yellow-500 bg-yellow-50 dark:bg-yellow-900/20 scale-105 shadow-lg'
-                : 'border-gray-300 dark:border-gray-700 hover:border-yellow-400 dark:hover:border-yellow-600'
-            }`}
-          >
-            {isOver ? (
-              <div className="flex flex-col items-center gap-2">
-                <svg className="w-8 h-8 text-yellow-500 animate-bounce" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 14l-7 7m0 0l-7-7m7 7V3" />
-                </svg>
-                <span className="text-yellow-600 dark:text-yellow-400 font-semibold">Drop here!</span>
+          {showForm ? (
+            <div className="border-2 border-yellow-400 rounded-xl p-4 bg-yellow-50 dark:bg-yellow-900/10">
+              <div className="flex items-center justify-between mb-3">
+                <span className="text-sm font-semibold text-gray-900 dark:text-white">Add place manually</span>
+                <button
+                  onClick={() => setShowForm(false)}
+                  className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
               </div>
-            ) : (
-              <div className="flex flex-col items-center gap-2">
-                <svg className="w-8 h-8 text-gray-400 dark:text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                </svg>
-                <span className="text-gray-400 dark:text-gray-600">Drag a place here</span>
+              <div className="space-y-2">
+                <input
+                  type="text"
+                  value={manualName}
+                  onChange={(e) => setManualName(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && handleAdd()}
+                  placeholder="Place name (e.g. Sungsimdang)"
+                  autoFocus
+                  className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-yellow-500"
+                />
+                <select
+                  value={manualCategory}
+                  onChange={(e) => setManualCategory(e.target.value)}
+                  className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-yellow-500"
+                >
+                  <option value="restaurant">Restaurant</option>
+                  <option value="cafe">Cafe</option>
+                  <option value="bakery">Bakery</option>
+                  <option value="attraction">Attraction</option>
+                  <option value="nature">Nature</option>
+                  <option value="shopping">Shopping</option>
+                  <option value="culture">Culture</option>
+                </select>
+                <div className="flex gap-2">
+                  <button
+                    onClick={handleAdd}
+                    disabled={!manualName.trim()}
+                    className="flex-1 bg-yellow-500 hover:bg-yellow-600 disabled:opacity-50 disabled:cursor-not-allowed text-white py-2 rounded-lg text-sm font-semibold transition-all"
+                  >
+                    Add to Timeline
+                  </button>
+                  <button
+                    onClick={() => setShowForm(false)}
+                    className="px-4 py-2 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white text-sm transition-all"
+                  >
+                    Cancel
+                  </button>
+                </div>
               </div>
-            )}
+            </div>
+          ) : (
+            <div
+              className={`border-2 border-dashed rounded-xl p-8 text-center transition-all ${
+                isOver
+                  ? 'border-yellow-500 bg-yellow-50 dark:bg-yellow-900/20 scale-105 shadow-lg'
+                  : 'border-gray-300 dark:border-gray-700 hover:border-yellow-400 dark:hover:border-yellow-600'
+              }`}
+            >
+              {isOver ? (
+                <div className="flex flex-col items-center gap-2">
+                  <svg className="w-8 h-8 text-yellow-500 animate-bounce" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 14l-7 7m0 0l-7-7m7 7V3" />
+                  </svg>
+                  <span className="text-yellow-600 dark:text-yellow-400 font-semibold">Drop here!</span>
+                </div>
+              ) : (
+                <div className="flex flex-col items-center gap-2">
+                  <svg className="w-8 h-8 text-gray-400 dark:text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                  </svg>
+                  <span className="text-gray-400 dark:text-gray-600">Drag a place here</span>
+                  <button
+                    onClick={() => setShowForm(true)}
+                    className="text-xs text-yellow-600 dark:text-yellow-500 hover:text-yellow-700 dark:hover:text-yellow-400 underline mt-1 transition-colors"
+                  >
+                    or type manually
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function TripSetupScreen({ onStart }: { onStart: (setup: { startDate: string; numNights: number; startTime: string }) => void }) {
+  const today = new Date().toISOString().split('T')[0];
+  const [startDate, setStartDate] = useState(today);
+  const [numNights, setNumNights] = useState(2);
+  const [startTime, setStartTime] = useState('09:00');
+
+  return (
+    <div className="flex items-center justify-center h-full bg-gray-50 dark:bg-black">
+      <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-lg border border-gray-200 dark:border-gray-800 p-8 w-full max-w-sm mx-4">
+        <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-1">Plan Your Trip</h2>
+        <p className="text-gray-500 dark:text-gray-400 text-sm mb-6">Set your travel dates to get started</p>
+
+        <div className="space-y-5">
+          <div className="flex gap-3">
+            <div className="flex-1">
+              <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">Start Date</label>
+              <input
+                type="date"
+                value={startDate}
+                min={today}
+                onChange={(e) => setStartDate(e.target.value)}
+                className="w-full px-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-xl bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-yellow-500"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">Start Time</label>
+              <input
+                type="time"
+                value={startTime}
+                onChange={(e) => setStartTime(e.target.value)}
+                className="w-full px-3 py-2.5 border border-gray-300 dark:border-gray-600 rounded-xl bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-yellow-500"
+              />
+            </div>
           </div>
+
+          <div>
+            <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">Duration</label>
+            <div className="flex items-center gap-4 mb-3">
+              <button
+                onClick={() => setNumNights(n => Math.max(1, n - 1))}
+                className="w-10 h-10 rounded-full bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300 font-bold text-xl flex items-center justify-center transition-all"
+              >
+                −
+              </button>
+              <div className="flex-1 text-center">
+                <span className="text-4xl font-bold text-gray-900 dark:text-white">{numNights}</span>
+                <span className="text-gray-500 dark:text-gray-400 ml-1.5">박</span>
+                <div className="text-sm text-gray-400 mt-0.5">{numNights + 1}일</div>
+              </div>
+              <button
+                onClick={() => setNumNights(n => Math.min(14, n + 1))}
+                className="w-10 h-10 rounded-full bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300 font-bold text-xl flex items-center justify-center transition-all"
+              >
+                +
+              </button>
+            </div>
+            <div className="flex gap-2">
+              {[1, 2, 3, 4, 7].map(n => (
+                <button
+                  key={n}
+                  onClick={() => setNumNights(n)}
+                  className={`flex-1 py-1.5 rounded-lg text-sm font-semibold transition-all ${
+                    numNights === n
+                      ? 'bg-yellow-500 text-white'
+                      : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:bg-yellow-50 dark:hover:bg-gray-700'
+                  }`}
+                >
+                  {n}박
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <button
+            onClick={() => onStart({ startDate, numNights, startTime })}
+            className="w-full bg-yellow-500 hover:bg-yellow-600 text-white py-3 rounded-xl font-bold text-base transition-all"
+          >
+            Start Planning →
+          </button>
         </div>
       </div>
     </div>
@@ -238,7 +399,6 @@ function ItineraryContent() {
   const [savedItineraries, setSavedItineraries] = useState<any[]>([]);
   const [listLoading, setListLoading] = useState(false);
   const [placesHeight, setPlacesHeight] = useState(300);
-  const [isResizing, setIsResizing] = useState(false);
   
   // AI Chat state
   const [messages, setMessages] = useState<{ role: string; content: string }[]>([
@@ -253,12 +413,32 @@ function ItineraryContent() {
   // Recommended places from AI (initially empty, populated by chat)
   const [recommendedPlaces, setRecommendedPlaces] = useState<Place[]>([]);
 
-  // Timeline state
-  const [scheduleItems, setScheduleItems] = useState<ScheduleItem[]>([]);
-  
+  // Trip setup & multi-day timeline state
+  const [tripSetup, setTripSetup] = useState<{ startDate: string; numNights: number; startTime: string } | null>(null);
+  const [currentDay, setCurrentDay] = useState(0);
+  const [daySchedules, setDaySchedules] = useState<ScheduleItem[][]>([[]]);
+
+  // Current day's items (computed)
+  const scheduleItems = daySchedules[currentDay] ?? [];
+
+  const updateDaySchedule = (updater: (items: ScheduleItem[]) => ScheduleItem[]) => {
+    setDaySchedules(prev => {
+      const next = [...prev];
+      next[currentDay] = updater(next[currentDay] ?? []);
+      return next;
+    });
+  };
+
+  const getDayDate = (dayIndex: number): string => {
+    if (!tripSetup) return '';
+    const date = new Date(tripSetup.startDate);
+    date.setDate(date.getDate() + dayIndex);
+    return date.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+  };
+
   const calculateNextTime = () => {
-    if (scheduleItems.length === 0) return '09:00';
-    
+    if (scheduleItems.length === 0) return tripSetup?.startTime ?? '09:00';
+
     const lastItem = scheduleItems[scheduleItems.length - 1];
     const [hours, minutes] = lastItem.startTime.split(':').map(Number);
     const totalMinutes = hours * 60 + minutes + lastItem.duration * 60;
@@ -335,7 +515,9 @@ function ItineraryContent() {
           });
         });
 
-        setScheduleItems(allItems);
+        setDaySchedules([allItems]);
+        setCurrentDay(0);
+        setTripSetup({ startDate: new Date().toISOString().split('T')[0], numNights: Math.max(0, (itinerary.totalDays || 1) - 1), startTime: '09:00' });
         setRecommendedPlaces(uniquePlaces);
       })
       .catch(err => console.error('Failed to load itinerary:', err))
@@ -367,7 +549,7 @@ function ItineraryContent() {
           duration: defaultDuration
         };
         
-        setScheduleItems(prev => [...prev, newItem]);
+        updateDaySchedule(prev => [...prev, newItem]);
       }
     }
 
@@ -375,7 +557,7 @@ function ItineraryContent() {
   };
 
   const handleDurationChange = (itemId: string, change: number) => {
-    setScheduleItems(prev =>
+    updateDaySchedule(prev =>
       prev.map(item => {
         if (item.id === itemId) {
           const newDuration = Math.max(0.5, Math.min(4, item.duration + change));
@@ -387,7 +569,22 @@ function ItineraryContent() {
   };
 
   const handleRemoveItem = (itemId: string) => {
-    setScheduleItems(prev => prev.filter(item => item.id !== itemId));
+    updateDaySchedule(prev => prev.filter(item => item.id !== itemId));
+  };
+
+  const handleManualAdd = (name: string, category: string, startTime: string) => {
+    const newItem: ScheduleItem = {
+      id: `item-${Date.now()}`,
+      startTime,
+      place: {
+        id: `manual-${Date.now()}`,
+        name,
+        category,
+        description: '',
+      },
+      duration: 1,
+    };
+    updateDaySchedule(prev => [...prev, newItem]);
   };
 
   const handleSendMessage = async () => {
@@ -400,91 +597,39 @@ function ItineraryContent() {
     setIsSending(true);
 
     try {
-      // 실제 API 호출
-      const response = await fetch('/api/chat', {
+      const response = await fetch('/api/planner-chat', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          messages: [...messages, userMessage],
-        }),
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ messages: [...messages, userMessage] }),
       });
 
-      if (!response.ok) {
-        throw new Error('Failed to get AI response');
-      }
-
       const data = await response.json();
-      console.log('API Response:', data);
 
-      let aiResponseContent = '';
-      let newPlaces: Place[] = [];
-
-      // Check if response has places (new format)
-      if (data.places && Array.isArray(data.places) && data.places.length > 0) {
-        // Extract places from response
-        newPlaces = data.places.map((place: any, index: number) => ({
-          id: place.id || place._id || `place-${Date.now()}-${index}`,
-          name: place.name_en || place.name || 'Unknown Place',
-          category: place.category || 'restaurant',
-          description: place.description_en || place.description || '',
-          estimatedDuration: estimateDuration(place.category),
-          aiPrompt: currentInput,
-          rating: place.rating,
-          image: place.specialty_images?.[0] || place.images?.[0],
-        }));
-
-        aiResponseContent = data.text || `찾았습니다! ${newPlaces.length}개의 장소를 추천드립니다. 왼쪽에서 원하는 장소를 드래그해서 시간표에 배치해보세요.`;
-      } 
-      // Check for recommendations (old format, for backward compatibility)
-      else if (data.recommendations && Array.isArray(data.recommendations) && data.recommendations.length > 0) {
-        newPlaces = data.recommendations.map((rec: any, index: number) => ({
-          id: rec.place?.id || `place-${Date.now()}-${index}`,
-          name: rec.place?.name_en || rec.place?.name || 'Unknown Place',
-          category: rec.place?.category || 'restaurant',
-          description: rec.place?.description_en || rec.place?.description || '',
-          estimatedDuration: estimateDuration(rec.place?.category),
-          aiPrompt: currentInput,
-          rating: rec.place?.rating,
-          image: rec.place?.specialty_images?.[0] || rec.place?.images?.[0],
-        }));
-
-        aiResponseContent = data.message || data.text || `찾았습니다! ${newPlaces.length}개의 장소를 추천드립니다. 왼쪽에서 원하는 장소를 드래그해서 시간표에 배치해보세요.`;
-      } 
-      // Just text message (no places found or general response)
-      else if (data.text || data.message) {
-        aiResponseContent = data.text || data.message;
-      } 
-      // Error case
-      else if (data.error) {
-        aiResponseContent = '죄송합니다. 일시적인 오류가 발생했습니다.';
-      }
-      // Fallback
-      else {
-        aiResponseContent = '응답을 받았지만 장소 정보를 찾을 수 없습니다. 다른 질문을 시도해보세요.';
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to get AI response');
       }
 
-      console.log('Extracted places:', newPlaces);
-      console.log('AI message:', aiResponseContent);
+      const newPlaces: Place[] = (data.places ?? []).map((place: any, index: number) => ({
+        id: place.id || place._id || `place-${Date.now()}-${index}`,
+        name: place.name_en || place.name || 'Unknown Place',
+        category: place.category || 'restaurant',
+        description: place.description_en || place.description || '',
+        estimatedDuration: estimateDuration(place.category),
+        aiPrompt: currentInput,
+        rating: place.rating,
+        image: place.specialty_images?.[0] || place.images?.[0],
+      }));
 
-      const aiResponse = {
-        role: 'assistant',
-        content: aiResponseContent,
-      };
-      setMessages(prev => [...prev, aiResponse]);
+      const aiResponseContent = data.text ||
+        (newPlaces.length > 0
+          ? `${newPlaces.length}개의 장소를 찾았습니다! 왼쪽에서 드래그해서 시간표에 배치해보세요.`
+          : '장소 정보를 찾을 수 없습니다. 다른 질문을 시도해보세요.');
 
-      // Replace places with new recommendations (not append)
-      if (newPlaces.length > 0) {
-        setRecommendedPlaces(newPlaces);
-      }
+      setMessages(prev => [...prev, { role: 'assistant', content: aiResponseContent }]);
+      if (newPlaces.length > 0) setRecommendedPlaces(newPlaces);
     } catch (error) {
       console.error('Error sending message:', error);
-      const errorMessage = {
-        role: 'assistant',
-        content: '죄송합니다. 일시적인 오류가 발생했습니다. 다시 시도해주세요.',
-      };
-      setMessages(prev => [...prev, errorMessage]);
+      setMessages(prev => [...prev, { role: 'assistant', content: '죄송합니다. 일시적인 오류가 발생했습니다. 다시 시도해주세요.' }]);
     } finally {
       setIsSending(false);
     }
@@ -521,7 +666,9 @@ function ItineraryContent() {
       });
     });
 
-    setScheduleItems(allItems);
+    setDaySchedules([allItems]);
+    setCurrentDay(0);
+    setTripSetup({ startDate: new Date().toISOString().split('T')[0], numNights: Math.max(0, (itinerary.totalDays || 1) - 1), startTime: '09:00' });
     setRecommendedPlaces(uniquePlaces);
     setActiveTab('planner');
   };
@@ -599,7 +746,7 @@ function ItineraryContent() {
               <div className="flex items-center justify-between mb-6">
                 <h1 className="text-2xl font-bold text-gray-900 dark:text-white">My Itineraries</h1>
                 <button
-                  onClick={() => { setScheduleItems([]); setRecommendedPlaces([]); setActiveTab('planner'); }}
+                  onClick={() => { setDaySchedules([[]]); setCurrentDay(0); setTripSetup(null); setRecommendedPlaces([]); setActiveTab('planner'); }}
                   className="bg-yellow-500 hover:bg-yellow-600 text-white px-4 py-2 rounded-lg font-semibold transition-all"
                 >
                   + New Plan
@@ -675,7 +822,13 @@ function ItineraryContent() {
         )}
 
         {/* Planner Tab */}
-        {activeTab === 'planner' && (
+        {activeTab === 'planner' && (tripSetup === null ? (
+          <TripSetupScreen onStart={(setup) => {
+            setTripSetup(setup);
+            setDaySchedules(Array.from({ length: setup.numNights + 1 }, () => []));
+            setCurrentDay(0);
+          }} />
+        ) : (
           <DndContext
             sensors={sensors}
             collisionDetection={closestCorners}
@@ -733,7 +886,6 @@ function ItineraryContent() {
                   <div
                     className="h-1.5 bg-gray-300 dark:bg-gray-700 hover:bg-yellow-500 dark:hover:bg-yellow-600 cursor-ns-resize transition-colors"
                     onMouseDown={(e) => {
-                      setIsResizing(true);
                       const startY = e.clientY;
                       const startHeight = placesHeight;
 
@@ -744,7 +896,6 @@ function ItineraryContent() {
                       };
 
                       const handleMouseUp = () => {
-                        setIsResizing(false);
                         document.removeEventListener('mousemove', handleMouseMove);
                         document.removeEventListener('mouseup', handleMouseUp);
                       };
@@ -814,7 +965,7 @@ function ItineraryContent() {
               <div className="flex-1 flex flex-col bg-white dark:bg-gray-900">
                 {/* Timeline Header */}
                 <div className="p-6 border-b border-gray-200 dark:border-gray-800">
-                  <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center justify-between mb-3">
                     <h2 className="text-2xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
                       <svg className="w-6 h-6 text-yellow-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
                       Your Itinerary
@@ -823,9 +974,41 @@ function ItineraryContent() {
                       Save Plan
                     </button>
                   </div>
-                  <p className="text-gray-600 dark:text-gray-400">
-                    Day 1 - {new Date().toLocaleDateString('ko-KR', { month: 'long', day: 'numeric' })}
-                  </p>
+                  {/* Day navigator */}
+                  {tripSetup && tripSetup.numNights > 0 && (
+                    <div className="flex gap-1.5 overflow-x-auto pb-1 mb-2">
+                      {Array.from({ length: tripSetup.numNights + 1 }, (_, i) => (
+                        <button
+                          key={i}
+                          onClick={() => setCurrentDay(i)}
+                          className={`px-3 py-1.5 rounded-lg text-sm font-semibold whitespace-nowrap transition-all ${
+                            currentDay === i
+                              ? 'bg-yellow-500 text-white'
+                              : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:bg-yellow-50 dark:hover:bg-gray-700'
+                          }`}
+                        >
+                          Day {i + 1}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                  <div className="flex items-center gap-3">
+                    <p className="text-sm text-gray-500 dark:text-gray-400">
+                      Day {currentDay + 1} — {getDayDate(currentDay)}
+                    </p>
+                    <div className="flex items-center gap-1.5 ml-auto">
+                      <svg className="w-3.5 h-3.5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                      <span className="text-xs text-gray-400">Start</span>
+                      <input
+                        type="time"
+                        value={tripSetup?.startTime ?? '09:00'}
+                        onChange={(e) => setTripSetup(prev => prev ? { ...prev, startTime: e.target.value } : null)}
+                        className="text-xs border border-gray-200 dark:border-gray-700 rounded-lg px-2 py-1 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 focus:outline-none focus:ring-1 focus:ring-yellow-500"
+                      />
+                    </div>
+                  </div>
                 </div>
 
                 {/* Timeline Content */}
@@ -841,7 +1024,7 @@ function ItineraryContent() {
 
                   {/* Drop Zone for next item */}
                   <SortableContext items={[`drop-zone-${calculateNextTime()}`]}>
-                    <DropZone time={calculateNextTime()} />
+                    <DropZone time={calculateNextTime()} onManualAdd={handleManualAdd} />
                   </SortableContext>
                 </div>
               </div>
@@ -852,7 +1035,7 @@ function ItineraryContent() {
               {activePlace ? <PlaceCard place={activePlace} /> : null}
             </DragOverlay>
           </DndContext>
-        )}
+        ))}
 
       </div>
     </div>
