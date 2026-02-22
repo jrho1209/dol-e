@@ -4,7 +4,7 @@ import { authOptions } from '@/app/api/auth/[...nextauth]/route';
 import clientPromise from '@/lib/mongodb';
 import { ObjectId } from 'mongodb';
 
-// GET /api/itinerary - Get all itineraries for the current user
+// GET /api/itinerary - Get all itineraries (or one by ?id=xxx)
 export async function GET(req: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
@@ -16,9 +16,30 @@ export async function GET(req: NextRequest) {
       );
     }
 
+    const { searchParams } = new URL(req.url);
+    const itineraryId = searchParams.get('id');
+
     const client = await clientPromise;
     const db = client.db(process.env.MONGODB_DB_NAME);
     const itinerariesCollection = db.collection('itineraries');
+
+    if (itineraryId) {
+      const itinerary = await itinerariesCollection.findOne({
+        _id: new ObjectId(itineraryId),
+        userId: session.user.id,
+      });
+
+      if (!itinerary) {
+        return NextResponse.json(
+          { error: 'Itinerary not found' },
+          { status: 404 }
+        );
+      }
+
+      return NextResponse.json({
+        itinerary: { ...itinerary, _id: itinerary._id.toString() },
+      });
+    }
 
     const itineraries = await itinerariesCollection
       .find({ userId: session.user.id })

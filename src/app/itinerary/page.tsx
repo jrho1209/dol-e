@@ -2,7 +2,7 @@
 
 import { useState, useEffect, Suspense } from 'react';
 import { useSession } from 'next-auth/react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import {
   DndContext,
   DragOverlay,
@@ -223,7 +223,11 @@ function DropZone({ time }: { time: string }) {
 function ItineraryContent() {
   const { data: session } = useSession();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [isLoading, setIsLoading] = useState(false);
+  const [activeTab, setActiveTab] = useState<'list' | 'planner'>('list');
+  const [savedItineraries, setSavedItineraries] = useState<any[]>([]);
+  const [listLoading, setListLoading] = useState(false);
   const [placesHeight, setPlacesHeight] = useState(300);
   const [isResizing, setIsResizing] = useState(false);
   
@@ -268,6 +272,66 @@ function ItineraryContent() {
       router.push('/login');
     }
   }, [session, router]);
+
+  useEffect(() => {
+    if (!session) return;
+    setListLoading(true);
+    fetch('/api/itinerary')
+      .then(res => res.json())
+      .then(data => setSavedItineraries(data.itineraries || []))
+      .catch(err => console.error('Failed to load itineraries:', err))
+      .finally(() => setListLoading(false));
+  }, [session]);
+
+  useEffect(() => {
+    const itineraryId = searchParams.get('id');
+    if (!itineraryId || !session) return;
+
+    setActiveTab('planner');
+    setIsLoading(true);
+    fetch(`/api/itinerary?id=${itineraryId}`)
+      .then(res => res.json())
+      .then(data => {
+        if (!data.itinerary) return;
+        const itinerary = data.itinerary;
+
+        // Flatten all days' items into scheduleItems
+        const allItems: ScheduleItem[] = [];
+        const uniquePlaces: Place[] = [];
+        const seenIds = new Set<string>();
+
+        itinerary.days?.forEach((day: any) => {
+          day.items?.forEach((item: any, index: number) => {
+            if (!item.place) return;
+            const placeId = item.place.id || `place-${day.day}-${index}`;
+            const mappedPlace: Place = {
+              id: placeId,
+              name: item.place.name_en || item.place.name,
+              category: item.place.category,
+              description: item.place.description_en || item.place.description,
+              image: item.place.specialty_images?.[0] || item.place.image_url,
+              rating: item.place.rating,
+              estimatedDuration: estimateDuration(item.place.category),
+            };
+            allItems.push({
+              id: `item-${day.day}-${index}`,
+              startTime: item.time,
+              duration: Math.max(0.5, (item.duration || 60) / 60),
+              place: mappedPlace,
+            });
+            if (!seenIds.has(placeId)) {
+              seenIds.add(placeId);
+              uniquePlaces.push(mappedPlace);
+            }
+          });
+        });
+
+        setScheduleItems(allItems);
+        setRecommendedPlaces(uniquePlaces);
+      })
+      .catch(err => console.error('Failed to load itinerary:', err))
+      .finally(() => setIsLoading(false));
+  }, [session, searchParams]);
 
   const handleDragStart = (event: DragStartEvent) => {
     const { active } = event;
@@ -417,6 +481,53 @@ function ItineraryContent() {
     }
   };
 
+  const handleOpenInPlanner = (itinerary: any) => {
+    const allItems: ScheduleItem[] = [];
+    const uniquePlaces: Place[] = [];
+    const seenIds = new Set<string>();
+
+    itinerary.days?.forEach((day: any) => {
+      day.items?.forEach((item: any, index: number) => {
+        if (!item.place) return;
+        const placeId = item.place.id || `place-${day.day}-${index}`;
+        const mappedPlace: Place = {
+          id: placeId,
+          name: item.place.name_en || item.place.name,
+          category: item.place.category,
+          description: item.place.description_en || item.place.description,
+          image: item.place.specialty_images?.[0] || item.place.image_url,
+          rating: item.place.rating,
+          estimatedDuration: estimateDuration(item.place.category),
+        };
+        allItems.push({
+          id: `item-${day.day}-${index}`,
+          startTime: item.time,
+          duration: Math.max(0.5, (item.duration || 60) / 60),
+          place: mappedPlace,
+        });
+        if (!seenIds.has(placeId)) {
+          seenIds.add(placeId);
+          uniquePlaces.push(mappedPlace);
+        }
+      });
+    });
+
+    setScheduleItems(allItems);
+    setRecommendedPlaces(uniquePlaces);
+    setActiveTab('planner');
+  };
+
+  const handleDeleteItinerary = async (id: string) => {
+    try {
+      const res = await fetch(`/api/itinerary?id=${id}`, { method: 'DELETE' });
+      if (res.ok) {
+        setSavedItineraries(prev => prev.filter((it: any) => it._id !== id));
+      }
+    } catch (err) {
+      console.error('Failed to delete itinerary:', err);
+    }
+  };
+
   // Helper function to estimate duration based on category
   const estimateDuration = (category?: string): string => {
     const durations: { [key: string]: string } = {
@@ -444,181 +555,286 @@ function ItineraryContent() {
   }
 
   return (
-    <DndContext
-      sensors={sensors}
-      collisionDetection={closestCorners}
-      onDragStart={handleDragStart}
-      onDragEnd={handleDragEnd}
-    >
-      <main className="h-screen pt-16 bg-gray-50 dark:bg-black overflow-hidden">
-        <div className="h-full flex">
-          {/* Left Panel - AI Chat & Recommended Places */}
-          <div className="w-1/3 border-r border-gray-200 dark:border-gray-800 flex flex-col bg-white dark:bg-gray-900">
-            {/* Header */}
-            <div className="p-4 border-b border-gray-200 dark:border-gray-800">
-              <h2 className="text-xl font-bold text-gray-900 dark:text-white">
-                🤖 AI Travel Planner
-              </h2>
-              <p className="text-sm text-gray-600 dark:text-gray-400">
-                Ask me about places in Daejeon
-              </p>
-            </div>
+    <div className="h-screen flex flex-col pt-16 bg-gray-50 dark:bg-black">
+      {/* Tab Bar */}
+      <div className="flex items-center gap-1 px-6 border-b border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 shrink-0">
+        <button
+          onClick={() => setActiveTab('list')}
+          className={`px-4 py-3 text-sm font-semibold border-b-2 transition-colors ${
+            activeTab === 'list'
+              ? 'border-yellow-500 text-yellow-600'
+              : 'border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200'
+          }`}
+        >
+          My Itineraries
+        </button>
+        <button
+          onClick={() => setActiveTab('planner')}
+          className={`px-4 py-3 text-sm font-semibold border-b-2 transition-colors ${
+            activeTab === 'planner'
+              ? 'border-yellow-500 text-yellow-600'
+              : 'border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200'
+          }`}
+        >
+          Planner
+        </button>
+      </div>
 
-            {/* Chat Messages */}
-            <div className="flex-1 overflow-y-auto p-4 space-y-4">
-              {messages.map((msg, idx) => (
-                <div
-                  key={idx}
-                  className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
+      {/* Tab Content */}
+      <div className="flex-1 overflow-hidden">
+
+        {/* My Itineraries Tab */}
+        {activeTab === 'list' && (
+          <div className="h-full overflow-y-auto p-6">
+            <div className="max-w-4xl mx-auto">
+              <div className="flex items-center justify-between mb-6">
+                <h1 className="text-2xl font-bold text-gray-900 dark:text-white">My Itineraries</h1>
+                <button
+                  onClick={() => { setScheduleItems([]); setRecommendedPlaces([]); setActiveTab('planner'); }}
+                  className="bg-yellow-500 hover:bg-yellow-600 text-white px-4 py-2 rounded-lg font-semibold transition-all"
                 >
-                  <div
-                    className={`max-w-[80%] rounded-lg p-3 ${
-                      msg.role === 'user'
-                        ? 'bg-yellow-500 text-white'
-                        : 'bg-gray-100 dark:bg-gray-800 text-gray-900 dark:text-white'
-                    }`}
-                  >
-                    {msg.content}
-                  </div>
+                  + New Plan
+                </button>
+              </div>
+
+              {listLoading ? (
+                <div className="flex items-center justify-center h-40 text-gray-500 dark:text-gray-400">
+                  Loading...
                 </div>
-              ))}
-              {isSending && (
-                <div className="flex justify-start">
-                  <div className="bg-gray-100 dark:bg-gray-800 rounded-lg p-3">
-                    <div className="flex gap-1">
-                      <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"></div>
-                      <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
-                      <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
-                    </div>
-                  </div>
+              ) : savedItineraries.length === 0 ? (
+                <div className="flex flex-col items-center justify-center h-64 text-gray-400">
+                  <p className="text-4xl mb-4">📋</p>
+                  <p className="text-lg font-medium">No saved itineraries yet</p>
+                  <p className="text-sm mt-1">Go to the chat to generate a plan!</p>
+                  <button
+                    onClick={() => setActiveTab('planner')}
+                    className="mt-4 text-yellow-600 hover:text-yellow-700 font-medium"
+                  >
+                    Open Planner →
+                  </button>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {savedItineraries.map((it: any) => {
+                    const totalPlaces = it.days?.reduce(
+                      (sum: number, day: any) => sum + (day.items?.length || 0), 0
+                    ) || 0;
+                    return (
+                      <div
+                        key={it._id}
+                        className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 p-5 hover:shadow-md transition-shadow"
+                      >
+                        <h3 className="font-bold text-gray-900 dark:text-white mb-1 truncate">{it.title}</h3>
+                        {it.description && (
+                          <p className="text-sm text-gray-500 dark:text-gray-400 mb-3 line-clamp-2">{it.description}</p>
+                        )}
+                        <div className="flex gap-3 text-xs text-gray-500 dark:text-gray-400 mb-4">
+                          <span>📅 {it.totalDays} days</span>
+                          <span>📍 {totalPlaces} places</span>
+                          <span>🕐 {new Date(it.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</span>
+                        </div>
+                        <div className="flex gap-2">
+                          <button
+                            onClick={() => handleOpenInPlanner(it)}
+                            className="flex-1 bg-yellow-500 hover:bg-yellow-600 text-white py-2 rounded-lg text-sm font-semibold transition-all"
+                          >
+                            Open
+                          </button>
+                          <button
+                            onClick={() => handleDeleteItinerary(it._id)}
+                            className="px-3 py-2 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg text-sm transition-all"
+                          >
+                            Delete
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
               )}
             </div>
+          </div>
+        )}
 
-            {/* Recommended Places */}
-            <div className="bg-gray-50 dark:bg-gray-800 flex flex-col">
-              {/* Resize Handle */}
-              <div
-                className="h-1.5 bg-gray-300 dark:bg-gray-700 hover:bg-yellow-500 dark:hover:bg-yellow-600 cursor-ns-resize transition-colors"
-                onMouseDown={(e) => {
-                  setIsResizing(true);
-                  const startY = e.clientY;
-                  const startHeight = placesHeight;
+        {/* Planner Tab */}
+        {activeTab === 'planner' && (
+          <DndContext
+            sensors={sensors}
+            collisionDetection={closestCorners}
+            onDragStart={handleDragStart}
+            onDragEnd={handleDragEnd}
+          >
+            <div className="h-full flex">
+              {/* Left Panel - AI Chat & Recommended Places */}
+              <div className="w-1/3 border-r border-gray-200 dark:border-gray-800 flex flex-col bg-white dark:bg-gray-900">
+                {/* Header */}
+                <div className="p-4 border-b border-gray-200 dark:border-gray-800">
+                  <h2 className="text-xl font-bold text-gray-900 dark:text-white">
+                    🤖 AI Travel Planner
+                  </h2>
+                  <p className="text-sm text-gray-600 dark:text-gray-400">
+                    Ask me about places in Daejeon
+                  </p>
+                </div>
 
-                  const handleMouseMove = (e: MouseEvent) => {
-                    const delta = e.clientY - startY;
-                    const newHeight = Math.max(150, Math.min(600, startHeight - delta));
-                    setPlacesHeight(newHeight);
-                  };
+                {/* Chat Messages */}
+                <div className="flex-1 overflow-y-auto p-4 space-y-4">
+                  {messages.map((msg, idx) => (
+                    <div
+                      key={idx}
+                      className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
+                    >
+                      <div
+                        className={`max-w-[80%] rounded-lg p-3 ${
+                          msg.role === 'user'
+                            ? 'bg-yellow-500 text-white'
+                            : 'bg-gray-100 dark:bg-gray-800 text-gray-900 dark:text-white'
+                        }`}
+                      >
+                        {msg.content}
+                      </div>
+                    </div>
+                  ))}
+                  {isSending && (
+                    <div className="flex justify-start">
+                      <div className="bg-gray-100 dark:bg-gray-800 rounded-lg p-3">
+                        <div className="flex gap-1">
+                          <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"></div>
+                          <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
+                          <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
 
-                  const handleMouseUp = () => {
-                    setIsResizing(false);
-                    document.removeEventListener('mousemove', handleMouseMove);
-                    document.removeEventListener('mouseup', handleMouseUp);
-                  };
+                {/* Recommended Places */}
+                <div className="bg-gray-50 dark:bg-gray-800 flex flex-col">
+                  {/* Resize Handle */}
+                  <div
+                    className="h-1.5 bg-gray-300 dark:bg-gray-700 hover:bg-yellow-500 dark:hover:bg-yellow-600 cursor-ns-resize transition-colors"
+                    onMouseDown={(e) => {
+                      setIsResizing(true);
+                      const startY = e.clientY;
+                      const startHeight = placesHeight;
 
-                  document.addEventListener('mousemove', handleMouseMove);
-                  document.addEventListener('mouseup', handleMouseUp);
-                }}
-              />
-              
-              <div className="p-4 pb-2 border-b border-gray-200 dark:border-gray-700">
-                <div className="flex items-center justify-between">
-                  <h3 className="font-bold text-gray-900 dark:text-white flex items-center gap-2">
-                    <span>📍</span>
-                    <span>Recommended Places</span>
-                    <span className="text-xs text-gray-500">({recommendedPlaces.length})</span>
-                  </h3>
-                  <span className="text-xs text-gray-400">⇕ Drag to resize</span>
+                      const handleMouseMove = (e: MouseEvent) => {
+                        const delta = e.clientY - startY;
+                        const newHeight = Math.max(150, Math.min(600, startHeight - delta));
+                        setPlacesHeight(newHeight);
+                      };
+
+                      const handleMouseUp = () => {
+                        setIsResizing(false);
+                        document.removeEventListener('mousemove', handleMouseMove);
+                        document.removeEventListener('mouseup', handleMouseUp);
+                      };
+
+                      document.addEventListener('mousemove', handleMouseMove);
+                      document.addEventListener('mouseup', handleMouseUp);
+                    }}
+                  />
+
+                  <div className="p-4 pb-2 border-b border-gray-200 dark:border-gray-700">
+                    <div className="flex items-center justify-between">
+                      <h3 className="font-bold text-gray-900 dark:text-white flex items-center gap-2">
+                        <span>📍</span>
+                        <span>Recommended Places</span>
+                        <span className="text-xs text-gray-500">({recommendedPlaces.length})</span>
+                      </h3>
+                      <span className="text-xs text-gray-400">⇕ Drag to resize</span>
+                    </div>
+                  </div>
+
+                  <div
+                    className="overflow-y-auto px-4 pb-2"
+                    style={{ height: `${placesHeight}px` }}
+                  >
+                    <SortableContext items={recommendedPlaces.map(p => p.id)}>
+                      <div className="grid grid-cols-2 gap-2">
+                        {recommendedPlaces.map(place => (
+                          <div key={place.id}>
+                            <DraggablePlaceCard place={place} />
+                          </div>
+                        ))}
+                      </div>
+                    </SortableContext>
+                  </div>
+
+                  <div className="px-4 py-2">
+                    <p className="text-xs text-gray-500 dark:text-gray-600">
+                      💡 Drag places to the timeline on the right →
+                    </p>
+                  </div>
+                </div>
+
+                {/* Chat Input */}
+                <div className="p-4 border-t border-gray-200 dark:border-gray-800">
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      value={input}
+                      onChange={(e) => setInput(e.target.value)}
+                      onKeyDown={(e) => e.key === 'Enter' && handleSendMessage()}
+                      placeholder="어떤 장소를 찾으시나요?"
+                      className="flex-1 px-4 py-2 border border-gray-300 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-yellow-500"
+                    />
+                    <button
+                      onClick={handleSendMessage}
+                      disabled={isSending}
+                      className="px-4 py-2 bg-yellow-500 hover:bg-yellow-600 text-white rounded-lg font-semibold disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                    >
+                      Send
+                    </button>
+                  </div>
                 </div>
               </div>
-              
-              <div 
-                className="overflow-y-auto px-4 pb-2" 
-                style={{ height: `${placesHeight}px` }}
-              >
-                <SortableContext items={recommendedPlaces.map(p => p.id)}>
-                  <div className="grid grid-cols-2 gap-2">
-                    {recommendedPlaces.map(place => (
-                      <div key={place.id}>
-                        <DraggablePlaceCard place={place} />
-                      </div>
-                    ))}
+
+              {/* Right Panel - Timeline */}
+              <div className="flex-1 flex flex-col bg-white dark:bg-gray-900">
+                {/* Timeline Header */}
+                <div className="p-6 border-b border-gray-200 dark:border-gray-800">
+                  <div className="flex items-center justify-between mb-2">
+                    <h2 className="text-2xl font-bold text-gray-900 dark:text-white">
+                      📅 Your Itinerary
+                    </h2>
+                    <button className="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-lg font-semibold transition-all">
+                      Save Plan
+                    </button>
                   </div>
-                </SortableContext>
-              </div>
-              
-              <div className="px-4 py-2">
-                <p className="text-xs text-gray-500 dark:text-gray-600">
-                  💡 Drag places to the timeline on the right →
-                </p>
+                  <p className="text-gray-600 dark:text-gray-400">
+                    Day 1 - {new Date().toLocaleDateString('ko-KR', { month: 'long', day: 'numeric' })}
+                  </p>
+                </div>
+
+                {/* Timeline Content */}
+                <div className="flex-1 overflow-y-auto p-6">
+                  {scheduleItems.map((item) => (
+                    <ScheduleItemCard
+                      key={item.id}
+                      item={item}
+                      onDurationChange={handleDurationChange}
+                      onRemove={handleRemoveItem}
+                    />
+                  ))}
+
+                  {/* Drop Zone for next item */}
+                  <SortableContext items={[`drop-zone-${calculateNextTime()}`]}>
+                    <DropZone time={calculateNextTime()} />
+                  </SortableContext>
+                </div>
               </div>
             </div>
 
-            {/* Chat Input */}
-            <div className="p-4 border-t border-gray-200 dark:border-gray-800">
-              <div className="flex gap-2">
-                <input
-                  type="text"
-                  value={input}
-                  onChange={(e) => setInput(e.target.value)}
-                  onKeyDown={(e) => e.key === 'Enter' && handleSendMessage()}
-                  placeholder="어떤 장소를 찾으시나요?"
-                  className="flex-1 px-4 py-2 border border-gray-300 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-yellow-500"
-                />
-                <button
-                  onClick={handleSendMessage}
-                  disabled={isSending}
-                  className="px-4 py-2 bg-yellow-500 hover:bg-yellow-600 text-white rounded-lg font-semibold disabled:opacity-50 disabled:cursor-not-allowed transition-all"
-                >
-                  Send
-                </button>
-              </div>
-            </div>
-          </div>
+            {/* Drag Overlay */}
+            <DragOverlay>
+              {activePlace ? <PlaceCard place={activePlace} /> : null}
+            </DragOverlay>
+          </DndContext>
+        )}
 
-          {/* Right Panel - Timeline */}
-          <div className="flex-1 flex flex-col bg-white dark:bg-gray-900">
-            {/* Timeline Header */}
-            <div className="p-6 border-b border-gray-200 dark:border-gray-800">
-              <div className="flex items-center justify-between mb-2">
-                <h2 className="text-2xl font-bold text-gray-900 dark:text-white">
-                  📅 Your Itinerary
-                </h2>
-                <button className="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-lg font-semibold transition-all">
-                  Save Plan
-                </button>
-              </div>
-              <p className="text-gray-600 dark:text-gray-400">
-                Day 1 - {new Date().toLocaleDateString('ko-KR', { month: 'long', day: 'numeric' })}
-              </p>
-            </div>
-
-            {/* Timeline Content */}
-            <div className="flex-1 overflow-y-auto p-6">
-              {scheduleItems.map((item) => (
-                <ScheduleItemCard 
-                  key={item.id}
-                  item={item}
-                  onDurationChange={handleDurationChange}
-                  onRemove={handleRemoveItem}
-                />
-              ))}
-              
-              {/* Drop Zone for next item */}
-              <SortableContext items={[`drop-zone-${calculateNextTime()}`]}>
-                <DropZone time={calculateNextTime()} />
-              </SortableContext>
-            </div>
-          </div>
-        </div>
-
-        {/* Drag Overlay */}
-        <DragOverlay>
-          {activePlace ? <PlaceCard place={activePlace} /> : null}
-        </DragOverlay>
-      </main>
-    </DndContext>
+      </div>
+    </div>
   );
 }
 
