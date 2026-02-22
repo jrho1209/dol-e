@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, Suspense } from 'react';
+import { jsPDF } from 'jspdf';
 import { useSession } from 'next-auth/react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import {
@@ -305,8 +306,9 @@ function DropZone({ time, onManualAdd }: {
   );
 }
 
-function TripSetupScreen({ onStart }: { onStart: (setup: { startDate: string; numNights: number; startTime: string }) => void }) {
+function TripSetupScreen({ onStart }: { onStart: (setup: { tripName: string; startDate: string; numNights: number; startTime: string }) => void }) {
   const today = new Date().toISOString().split('T')[0];
+  const [tripName, setTripName] = useState('');
   const [startDate, setStartDate] = useState(today);
   const [numNights, setNumNights] = useState(2);
   const [startTime, setStartTime] = useState('09:00');
@@ -318,6 +320,16 @@ function TripSetupScreen({ onStart }: { onStart: (setup: { startDate: string; nu
         <p className="text-gray-500 dark:text-gray-400 text-sm mb-6">Set your travel dates to get started</p>
 
         <div className="space-y-5">
+          <div>
+            <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">Trip Name</label>
+            <input
+              type="text"
+              value={tripName}
+              onChange={(e) => setTripName(e.target.value)}
+              placeholder="e.g. Daejeon Summer Trip"
+              className="w-full px-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-xl bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-yellow-500"
+            />
+          </div>
           <div className="flex gap-3">
             <div className="flex-1">
               <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">Start Date</label>
@@ -379,7 +391,7 @@ function TripSetupScreen({ onStart }: { onStart: (setup: { startDate: string; nu
           </div>
 
           <button
-            onClick={() => onStart({ startDate, numNights, startTime })}
+            onClick={() => onStart({ tripName, startDate, numNights, startTime })}
             className="w-full bg-yellow-500 hover:bg-yellow-600 text-white py-3 rounded-xl font-bold text-base transition-all"
           >
             Start Planning →
@@ -414,7 +426,7 @@ function ItineraryContent() {
   const [recommendedPlaces, setRecommendedPlaces] = useState<Place[]>([]);
 
   // Trip setup & multi-day timeline state
-  const [tripSetup, setTripSetup] = useState<{ startDate: string; numNights: number; startTime: string } | null>(null);
+  const [tripSetup, setTripSetup] = useState<{ tripName: string; startDate: string; numNights: number; startTime: string } | null>(null);
   const [currentDay, setCurrentDay] = useState(0);
   const [daySchedules, setDaySchedules] = useState<ScheduleItem[][]>([[]]);
 
@@ -447,6 +459,193 @@ function ItineraryContent() {
     return `${String(nextHours).padStart(2, '0')}:${String(nextMinutes).padStart(2, '0')}`;
   };
 
+  const downloadItineraryPDF = (itinerary: any) => {
+    const doc = new jsPDF();
+    const pageWidth = 210;
+    const margin = 14;
+    const contentWidth = pageWidth - margin * 2;
+    let y = 0;
+
+    const checkPage = (need: number) => {
+      if (y + need > 278) {
+        doc.addPage();
+        y = margin;
+      }
+    };
+
+    // ── Header bar ─────────────────────────────────────────────
+    doc.setFillColor(234, 179, 8); // yellow-500
+    doc.rect(0, 0, pageWidth, 32, 'F');
+
+    doc.setTextColor(255, 255, 255);
+    doc.setFontSize(20);
+    doc.setFont('helvetica', 'bold');
+    doc.text('DOL-E', margin, 13);
+
+    doc.setFontSize(8);
+    doc.setFont('helvetica', 'normal');
+    doc.text('AI Travel Guide · Daejeon, South Korea', margin, 20);
+
+    // Trip title (right side of header)
+    const title = itinerary.title || 'My Itinerary';
+    doc.setFontSize(13);
+    doc.setFont('helvetica', 'bold');
+    doc.text(title, pageWidth - margin, 12, { align: 'right', maxWidth: 110 });
+
+    // Date range + days
+    const firstDate = itinerary.days?.[0]?.date;
+    const lastDate = itinerary.days?.[itinerary.days.length - 1]?.date;
+    const fmtDate = (d: string) => new Date(d).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+    const dateRange = firstDate && lastDate ? `${fmtDate(firstDate)} — ${fmtDate(lastDate)}` : '';
+    doc.setFontSize(8);
+    doc.setFont('helvetica', 'normal');
+    if (dateRange) doc.text(`${dateRange}  ·  ${itinerary.totalDays} day${itinerary.totalDays !== 1 ? 's' : ''}`, pageWidth - margin, 22, { align: 'right' });
+
+    y = 42;
+
+    // ── Days ────────────────────────────────────────────────────
+    (itinerary.days ?? []).forEach((day: any) => {
+      checkPage(18);
+
+      // Day header
+      doc.setFillColor(250, 250, 250);
+      doc.rect(margin, y - 4, contentWidth, 11, 'F');
+      doc.setDrawColor(234, 179, 8);
+      doc.rect(margin, y - 4, 3, 11, 'F'); // yellow left accent
+
+      const dayLabel = `DAY ${day.day}`;
+      const dayDate = day.date
+        ? new Date(day.date).toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })
+        : '';
+
+      doc.setTextColor(234, 179, 8);
+      doc.setFontSize(10);
+      doc.setFont('helvetica', 'bold');
+      doc.text(dayLabel, margin + 6, y + 3);
+
+      doc.setTextColor(60, 60, 60);
+      doc.setFontSize(9);
+      doc.setFont('helvetica', 'normal');
+      if (dayDate) doc.text(`— ${dayDate}`, margin + 25, y + 3);
+
+      y += 13;
+
+      const items: any[] = day.items ?? [];
+      if (items.length === 0) {
+        doc.setTextColor(170, 170, 170);
+        doc.setFontSize(8);
+        doc.text('No places planned for this day.', margin + 4, y + 2);
+        y += 10;
+      } else {
+        items.forEach((item: any, idx: number) => {
+          checkPage(16);
+
+          const placeName = item.place?.name_en || item.place?.name || 'Unknown';
+          const cat = item.place?.category ?? '';
+          const catLabel = cat.charAt(0).toUpperCase() + cat.slice(1);
+          const durMin = item.duration ?? 60;
+          const durText = durMin >= 60 ? `${(durMin / 60).toFixed(1).replace(/\.0$/, '')}h` : `${durMin}min`;
+
+          // Time dot
+          doc.setFillColor(234, 179, 8);
+          doc.circle(margin + 5, y + 2, 1.5, 'F');
+
+          // Time
+          doc.setTextColor(100, 100, 100);
+          doc.setFontSize(8.5);
+          doc.setFont('helvetica', 'bold');
+          doc.text(item.time ?? '', margin + 10, y + 3);
+
+          // Place name
+          doc.setTextColor(20, 20, 20);
+          doc.setFontSize(9.5);
+          doc.setFont('helvetica', 'bold');
+          doc.text(placeName, margin + 32, y + 3, { maxWidth: contentWidth - 52 });
+
+          // Duration · Category
+          doc.setTextColor(130, 130, 130);
+          doc.setFontSize(7.5);
+          doc.setFont('helvetica', 'normal');
+          doc.text(`${durText}  ·  ${catLabel}`, margin + 32, y + 9);
+
+          // Separator
+          if (idx < items.length - 1) {
+            doc.setDrawColor(235, 235, 235);
+            doc.line(margin + 9, y + 13, margin + contentWidth, y + 13);
+          }
+
+          y += 16;
+        });
+      }
+
+      y += 5; // gap between days
+    });
+
+    // ── Footer ──────────────────────────────────────────────────
+    doc.setTextColor(180, 180, 180);
+    doc.setFontSize(7.5);
+    doc.text('Generated by DOL-E  ·  AI-powered travel guide for Daejeon, South Korea', margin, 291);
+
+    // Save
+    const fileName = (itinerary.title || 'itinerary').replace(/[^a-z0-9\-_\s]/gi, '').trim().replace(/\s+/g, '_');
+    doc.save(`${fileName}.pdf`);
+  };
+
+  const [isSaving, setIsSaving] = useState(false);
+  const [saveSuccess, setSaveSuccess] = useState(false);
+
+  const handleSavePlan = async () => {
+    if (isSaving || !tripSetup) return;
+
+    setIsSaving(true);
+    setSaveSuccess(false);
+
+    try {
+      const totalDays = tripSetup.numNights + 1;
+      const title = tripSetup.tripName.trim() || `Daejeon Trip — ${new Date(tripSetup.startDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}`;
+
+      const days = daySchedules.map((items, idx) => {
+        const d = new Date(tripSetup.startDate);
+        d.setDate(d.getDate() + idx);
+        return {
+          day: idx + 1,
+          date: d.toISOString().split('T')[0],
+          items: items.map(item => ({
+            time: item.startTime,
+            duration: item.duration * 60,
+            place: {
+              id: item.place.id,
+              name: item.place.name,
+              name_en: item.place.name,
+              category: item.place.category,
+              description: item.place.description,
+              description_en: item.place.description,
+              rating: item.place.rating,
+              image_url: item.place.image,
+            },
+          })),
+        };
+      });
+
+      const res = await fetch('/api/itinerary', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ title, days, totalDays }),
+      });
+
+      if (!res.ok) throw new Error('Failed to save');
+
+      const data = await res.json();
+      setSavedItineraries(prev => [data.itinerary, ...prev]);
+      setSaveSuccess(true);
+      setTimeout(() => setSaveSuccess(false), 3000);
+    } catch (err) {
+      console.error('Failed to save plan:', err);
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
   const [activePlace, setActivePlace] = useState<Place | null>(null);
 
   const sensors = useSensors(
@@ -461,6 +660,12 @@ function ItineraryContent() {
       router.push('/login');
     }
   }, [session, router]);
+
+  useEffect(() => {
+    const handler = () => setActiveTab('list');
+    window.addEventListener('nav-itinerary', handler);
+    return () => window.removeEventListener('nav-itinerary', handler);
+  }, []);
 
   useEffect(() => {
     if (!session) return;
@@ -517,7 +722,7 @@ function ItineraryContent() {
 
         setDaySchedules([allItems]);
         setCurrentDay(0);
-        setTripSetup({ startDate: new Date().toISOString().split('T')[0], numNights: Math.max(0, (itinerary.totalDays || 1) - 1), startTime: '09:00' });
+        setTripSetup({ tripName: itinerary.title || '', startDate: new Date().toISOString().split('T')[0], numNights: Math.max(0, (itinerary.totalDays || 1) - 1), startTime: '09:00' });
         setRecommendedPlaces(uniquePlaces);
       })
       .catch(err => console.error('Failed to load itinerary:', err))
@@ -668,7 +873,7 @@ function ItineraryContent() {
 
     setDaySchedules([allItems]);
     setCurrentDay(0);
-    setTripSetup({ startDate: new Date().toISOString().split('T')[0], numNights: Math.max(0, (itinerary.totalDays || 1) - 1), startTime: '09:00' });
+    setTripSetup({ tripName: itinerary.title || '', startDate: new Date().toISOString().split('T')[0], numNights: Math.max(0, (itinerary.totalDays || 1) - 1), startTime: '09:00' });
     setRecommendedPlaces(uniquePlaces);
     setActiveTab('planner');
   };
@@ -798,7 +1003,7 @@ function ItineraryContent() {
                             {new Date(it.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
                           </span>
                         </div>
-                        <div className="flex gap-2">
+                        <div className="flex items-center gap-2">
                           <button
                             onClick={() => handleOpenInPlanner(it)}
                             className="flex-1 bg-yellow-500 hover:bg-yellow-600 text-white py-2 rounded-lg text-sm font-semibold transition-all"
@@ -806,10 +1011,22 @@ function ItineraryContent() {
                             Open
                           </button>
                           <button
-                            onClick={() => handleDeleteItinerary(it._id)}
-                            className="px-3 py-2 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg text-sm transition-all"
+                            onClick={() => downloadItineraryPDF(it)}
+                            title="Download PDF"
+                            className="p-2 text-gray-500 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-all"
                           >
-                            Delete
+                            <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                            </svg>
+                          </button>
+                          <button
+                            onClick={() => handleDeleteItinerary(it._id)}
+                            title="Delete"
+                            className="p-2 text-gray-500 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-all"
+                          >
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                            </svg>
                           </button>
                         </div>
                       </div>
@@ -970,8 +1187,16 @@ function ItineraryContent() {
                       <svg className="w-6 h-6 text-yellow-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
                       Your Itinerary
                     </h2>
-                    <button className="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-lg font-semibold transition-all">
-                      Save Plan
+                    <button
+                      onClick={handleSavePlan}
+                      disabled={isSaving}
+                      className={`px-4 py-2 rounded-lg font-semibold transition-all disabled:opacity-50 ${
+                        saveSuccess
+                          ? 'bg-green-600 text-white'
+                          : 'bg-green-500 hover:bg-green-600 text-white'
+                      }`}
+                    >
+                      {isSaving ? 'Saving...' : saveSuccess ? 'Saved!' : 'Save Plan'}
                     </button>
                   </div>
                   {/* Day navigator */}

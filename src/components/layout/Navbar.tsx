@@ -64,6 +64,7 @@ export default function Navbar() {
                 </Link>
                 <Link
                   href="/itinerary"
+                  onClick={() => window.dispatchEvent(new CustomEvent('nav-itinerary'))}
                   className="text-gray-600 hover:text-gray-900 dark:text-gray-300 dark:hover:text-white transition-colors flex items-center gap-1"
                 >
                   <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -181,7 +182,7 @@ export default function Navbar() {
                       </Link>
                       <Link
                         href="/itinerary"
-                        onClick={() => setProfileDropdownOpen(false)}
+                        onClick={() => { setProfileDropdownOpen(false); window.dispatchEvent(new CustomEvent('nav-itinerary')); }}
                         className="flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 dark:text-gray-200 hover:bg-yellow-50 dark:hover:bg-gray-700 transition-colors"
                       >
                         <svg className="w-4 h-4 text-yellow-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -280,7 +281,7 @@ export default function Navbar() {
                 <Link
                   href="/itinerary"
                   className="block text-gray-600 hover:text-gray-900 dark:text-gray-300 dark:hover:text-white"
-                  onClick={() => setMobileMenuOpen(false)}
+                  onClick={() => { setMobileMenuOpen(false); window.dispatchEvent(new CustomEvent('nav-itinerary')); }}
                 >
                   📋 Itineraries
                 </Link>
