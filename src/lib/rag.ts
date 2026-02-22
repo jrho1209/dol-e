@@ -68,7 +68,7 @@ export async function searchSimilarPlaces(
 ): Promise<SearchResult[]> {
   const {
     maxResults = parseInt(process.env.MAX_SEARCH_RESULTS || '5'),
-    similarityThreshold = parseFloat(process.env.SIMILARITY_THRESHOLD || '0.7'),
+    similarityThreshold = parseFloat(process.env.SIMILARITY_THRESHOLD || '0.5'),
     category,
     filterLocalOnly = process.env.PREFER_LOCAL_BUSINESS === 'true',
   } = options;

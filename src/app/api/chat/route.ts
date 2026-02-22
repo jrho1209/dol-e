@@ -50,7 +50,13 @@ export async function POST(req: NextRequest) {
           }),
           execute: async ({ placeNames }) => {
             const places = placeNames
-              .map((name) => results.find((r) => r.place.name_en === name)?.place)
+              .map((name) => {
+                const normalized = name.toLowerCase().trim();
+                return results.find((r) => {
+                  const en = r.place.name_en.toLowerCase().trim();
+                  return en === normalized || en.includes(normalized) || normalized.includes(en);
+                })?.place;
+              })
               .filter(Boolean);
             return { places };
           },

@@ -4,9 +4,13 @@ import { useChat } from '@ai-sdk/react';
 import { DefaultChatTransport, UIMessage } from 'ai';
 import { useSession } from 'next-auth/react';
 import { useState, useRef, useEffect } from 'react';
+import Link from 'next/link';
 import ChatMessage from './ChatMessage';
 import ChatInput from './ChatInput';
 import ChatSidebar from './ChatSidebar';
+
+const GUEST_LIMIT = 3;
+const GUEST_USAGE_KEY = 'dole_guest_usage';
 
 const PROMPT_EXAMPLES = [
   "Recommend authentic Korean restaurants in Daejeon",
@@ -21,6 +25,14 @@ export default function Chat() {
   const [conversationId, setConversationId] = useState<string | null>(null);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [sidebarKey, setSidebarKey] = useState(0);
+  const [guestUsageCount, setGuestUsageCount] = useState(0);
+
+  useEffect(() => {
+    if (!session) {
+      const stored = parseInt(localStorage.getItem(GUEST_USAGE_KEY) ?? '0', 10);
+      setGuestUsageCount(stored);
+    }
+  }, [session]);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const conversationIdRef = useRef<string | null>(null);
   conversationIdRef.current = conversationId;
@@ -123,8 +135,15 @@ export default function Chat() {
   };
 
   const handleSend = (content: string) => {
+    if (!session) {
+      const next = guestUsageCount + 1;
+      setGuestUsageCount(next);
+      localStorage.setItem(GUEST_USAGE_KEY, String(next));
+    }
     sendMessage({ text: content });
   };
+
+  const guestLimitReached = !session && guestUsageCount >= GUEST_LIMIT;
 
   return (
     <div className="flex h-full">
@@ -220,9 +239,46 @@ export default function Chat() {
           </div>
         </div>
 
-        {/* Input */}
+        {/* Input / Guest Gate */}
         <div className="max-w-3xl w-full mx-auto">
-          <ChatInput onSend={handleSend} disabled={isLoading} />
+          {guestLimitReached ? (
+            <div className="mx-4 mb-4 rounded-2xl border-2 border-yellow-400 bg-amber-50 p-5 text-center shadow-md">
+              <p className="text-2xl mb-2">🔒</p>
+              <p className="font-semibold text-gray-900 mb-1">You&apos;ve used your 3 free messages</p>
+              <p className="text-sm text-gray-500 mb-4">Create a free account to keep chatting with DOL-E and save your favorites.</p>
+              <div className="flex gap-3 justify-center">
+                <Link
+                  href="/signup"
+                  className="bg-yellow-500 hover:bg-yellow-600 text-white px-5 py-2 rounded-full font-medium text-sm transition-all"
+                >
+                  Sign Up — It&apos;s Free
+                </Link>
+                <Link
+                  href="/login"
+                  className="border border-gray-300 hover:border-gray-400 text-gray-700 px-5 py-2 rounded-full font-medium text-sm transition-all"
+                >
+                  Log In
+                </Link>
+              </div>
+            </div>
+          ) : (
+            <div className="relative">
+              {!session && (
+                <p className="text-center text-xs mb-1">
+                  <span className={`font-medium ${
+                    GUEST_LIMIT - guestUsageCount <= 1
+                      ? 'text-red-500'
+                      : GUEST_LIMIT - guestUsageCount <= 2
+                      ? 'text-orange-400'
+                      : 'text-gray-400'
+                  }`}>
+                    {GUEST_LIMIT - guestUsageCount} free message{GUEST_LIMIT - guestUsageCount !== 1 ? 's' : ''} remaining
+                  </span>
+                </p>
+              )}
+              <ChatInput onSend={handleSend} disabled={isLoading} />
+            </div>
+          )}
         </div>
       </div>
     </div>
