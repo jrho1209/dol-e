@@ -1,162 +1,113 @@
-import { NextRequest, NextResponse } from 'next/server';
-import OpenAI from 'openai';
+import { NextRequest } from 'next/server';
+import { streamText, tool, convertToModelMessages, UIMessage } from 'ai';
+import { openai } from '@ai-sdk/openai';
+import { z } from 'zod';
 import { performRAG } from '@/lib/rag';
 import { SYSTEM_PROMPT } from '@/lib/prompts';
 
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY!,
-});
-
 export async function POST(req: NextRequest) {
   try {
-    // Check environment variables
     if (!process.env.OPENAI_API_KEY) {
-      console.error('OPENAI_API_KEY is not set');
-      return NextResponse.json(
-        { error: 'Server configuration error: OpenAI API key missing' },
-        { status: 500 }
-      );
+      return new Response(JSON.stringify({ error: 'OpenAI API key missing' }), { status: 500 });
     }
-
     if (!process.env.MONGODB_URI) {
-      console.error('MONGODB_URI is not set');
-      return NextResponse.json(
-        { error: 'Server configuration error: Database connection missing' },
-        { status: 500 }
-      );
+      return new Response(JSON.stringify({ error: 'Database connection missing' }), { status: 500 });
     }
 
     const body = await req.json();
-    const { messages } = body;
+    const messages: UIMessage[] = body.messages ?? [];
 
-    if (!messages || !Array.isArray(messages)) {
-      return NextResponse.json(
-        { error: 'Invalid request: messages array required' },
-        { status: 400 }
-      );
+    if (!Array.isArray(messages) || messages.length === 0) {
+      return new Response(JSON.stringify({ error: 'messages array required' }), { status: 400 });
     }
 
-    // Get the latest user message
-    const lastUserMessage = messages
-      .filter((m: any) => m.role === 'user')
-      .pop();
+    // Extract last user message text from UIMessage parts
+    const lastUserMessage = [...messages].reverse().find((m) => m.role === 'user');
+    const queryText = lastUserMessage?.parts
+      .filter((p) => p.type === 'text')
+      .map((p) => ('text' in p ? p.text : ''))
+      .join('') ?? '';
 
-    if (!lastUserMessage) {
-      return NextResponse.json(
-        { error: 'No user message found' },
-        { status: 400 }
-      );
+    if (!queryText) {
+      return new Response(JSON.stringify({ error: 'No user message text found' }), { status: 400 });
     }
 
-    // Perform RAG: search for relevant places
-    const { context, results } = await performRAG(lastUserMessage.content);
+    // RAG: search for relevant places
+    const { context, results } = await performRAG(queryText);
 
-    console.log(`Found ${results.length} relevant places for query: "${lastUserMessage.content}"`);
-    
-    // Log similarity scores for debugging
-    results.forEach((result, index) => {
-      console.log(`  ${index + 1}. ${result.place.name_en} (similarity: ${result.similarity.toFixed(3)})`);
-    });
-
-    // Build messages with RAG context injected
-    const messagesWithContext = [
-      {
-        role: 'system' as const,
-        content: SYSTEM_PROMPT,
-      },
-      {
-        role: 'system' as const,
-        content: context,
-      },
-      ...messages,
-    ];
-
-    // Stream response from OpenAI
-    const response = await openai.chat.completions.create({
-      model: 'gpt-4o-mini',
-      messages: messagesWithContext,
+    const result = streamText({
+      model: openai('gpt-4o-mini'),
+      system: SYSTEM_PROMPT + '\n\n' + context,
+      messages: await convertToModelMessages(messages),
       temperature: 0.7,
-      max_tokens: 1000,
-      stream: false, // Changed to false for JSON parsing
-      response_format: { type: "json_object" },
+      maxTokens: 1000,
+      maxSteps: 3,
+      tools: {
+        recommendPlaces: tool({
+          description: 'Display place recommendation cards to the user for places in Daejeon',
+          inputSchema: z.object({
+            placeNames: z.array(z.string()).describe('Exact name_en values from the context'),
+          }),
+          execute: async ({ placeNames }) => {
+            const places = placeNames
+              .map((name) => results.find((r) => r.place.name_en === name)?.place)
+              .filter(Boolean);
+            return { places };
+          },
+        }),
+
+        createItinerary: tool({
+          description: 'Create and display a structured multi-day travel itinerary',
+          inputSchema: z.object({
+            title: z.string(),
+            description: z.string().optional(),
+            totalDays: z.number(),
+            days: z.array(
+              z.object({
+                day: z.number(),
+                title: z.string(),
+                items: z.array(
+                  z.object({
+                    time: z.string(),
+                    name_en: z.string(),
+                    notes: z.string().optional(),
+                    duration: z.number().optional(),
+                    transportation: z
+                      .object({
+                        method: z.string(),
+                        duration: z.number(),
+                        cost: z.number().optional(),
+                      })
+                      .optional(),
+                  })
+                ),
+              })
+            ),
+            budget: z
+              .object({ total: z.number(), perDay: z.number(), currency: z.string() })
+              .optional(),
+          }),
+          execute: async (itinerary) => {
+            const mappedDays = itinerary.days.map((day) => ({
+              ...day,
+              items: day.items
+                .map((item) => ({
+                  ...item,
+                  place: results.find((r) => r.place.name_en === item.name_en)?.place ?? null,
+                }))
+                .filter((item) => item.place !== null),
+            }));
+            return { itinerary: { ...itinerary, days: mappedDays } };
+          },
+        }),
+      },
     });
 
-    const content = response.choices[0]?.message?.content || '{}';
-    
-    console.log('Raw AI Response:', content); // Debug log
-    
-    try {
-      const parsed = JSON.parse(content);
-      console.log('Parsed JSON:', parsed); // Debug log
-      
-      // Check if this is an itinerary response
-      if (parsed.type === 'itinerary' && parsed.itinerary) {
-        console.log('Itinerary response detected');
-        
-        // Map place names in itinerary to full place objects
-        const itinerary = parsed.itinerary;
-        itinerary.days = itinerary.days.map((day: any) => ({
-          ...day,
-          items: day.items.map((item: any) => {
-            const fullPlace = results.find(r => r.place.name_en === item.name_en)?.place;
-            return {
-              ...item,
-              place: fullPlace || null,
-            };
-          }).filter((item: any) => item.place !== null),
-        }));
-        
-        return NextResponse.json({
-          text: parsed.text,
-          itinerary,
-        });
-      }
-      
-      // Regular place recommendations
-      const text = parsed.text || content;
-      const placeReferences = parsed.places || [];
-      
-      console.log('Place references from AI:', placeReferences); // Debug log
-      console.log('Available results:', results.length); // Debug log
-      
-      // Map place names to full place objects
-      const placesData = placeReferences.map((p: any) => {
-        const fullPlace = results.find(r => r.place.name_en === p.name_en)?.place;
-        console.log(`Mapping ${p.name_en} -> ${fullPlace ? 'Found' : 'Not found'}`); // Debug log
-        return fullPlace || null;
-      }).filter(Boolean);
-      
-      console.log('Final places data:', placesData.length); // Debug log
-      
-      // Return structured response
-      return NextResponse.json({
-        text,
-        places: placesData,
-      });
-    } catch (parseError) {
-      console.error('Error parsing JSON response:', parseError);
-      // Fallback to text-only response
-      return NextResponse.json({
-        text: content,
-        places: [],
-      });
-    }
+    return result.toUIMessageStreamResponse();
   } catch (error) {
     console.error('Error in chat API:', error);
-    
-    // Log more details for debugging
-    if (error instanceof Error) {
-      console.error('Error name:', error.name);
-      console.error('Error message:', error.message);
-      console.error('Error stack:', error.stack);
-    }
-    
-    return NextResponse.json(
-      { 
-        error: 'Internal server error', 
-        details: error instanceof Error ? error.message : 'Unknown error',
-        type: error instanceof Error ? error.name : 'Unknown'
-      },
+    return new Response(
+      JSON.stringify({ error: 'Internal server error', details: error instanceof Error ? error.message : 'Unknown' }),
       { status: 500 }
     );
   }

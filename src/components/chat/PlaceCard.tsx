@@ -9,57 +9,39 @@ interface PlaceCardProps {
   onSaveToggle?: (placeId: string, isSaved: boolean) => void;
 }
 
+const PRICE_LABELS = ['$', '$$', '$$$', '$$$$'];
+
+const CATEGORY_IMAGES: Record<string, string> = {
+  restaurant: 'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=800&h=400&fit=crop',
+  cafe: 'https://images.unsplash.com/photo-1554118811-1e0d58224f24?w=800&h=400&fit=crop',
+  accommodation: 'https://images.unsplash.com/photo-1566073771259-6a8506099945?w=800&h=400&fit=crop',
+  attraction: 'https://images.unsplash.com/photo-1555854877-bab0e564b8d5?w=800&h=400&fit=crop',
+  shopping: 'https://images.unsplash.com/photo-1441986300917-64674bd600d8?w=800&h=400&fit=crop',
+};
+
 export default function PlaceCard({ place, isSaved = false, onSaveToggle }: PlaceCardProps) {
-  const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(isSaved);
   const { data: session } = useSession();
-  
+
+  // isSaved prop 변경 시 saved state 업데이트 — hooks must come before any conditional return
+  useEffect(() => {
+    setSaved(isSaved);
+  }, [isSaved]);
+
   // Guard against undefined place (should not happen due to filtering in ChatMessage)
   if (!place || typeof place !== 'object' || !place.id) {
     return null;
   }
-  
-  // isSaved prop 변경 시 saved state 업데이트
-  useEffect(() => {
-    setSaved(isSaved);
-  }, [isSaved]);
-  
-  const priceLabels = ['$', '$$', '$$$', '$$$$'];
-  const priceText = place.price_range ? priceLabels[place.price_range - 1] : '';
 
-  // Debug logging
-  console.log('PlaceCard - Place:', place.name_en);
-  console.log('PlaceCard - Specialties:', place.specialties);
-  console.log('PlaceCard - Specialty Images:', place.specialty_images);
+  const priceText = place.price_range ? PRICE_LABELS[place.price_range - 1] : '';
 
   // Generate Google Maps URL if coordinates exist
   const mapUrl = place.coordinates
     ? `https://www.google.com/maps/search/?api=1&query=${place.coordinates.lat},${place.coordinates.lng}`
     : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(place.name + ' ' + place.address)}`;
 
-  // Static map image URL (using Google Static Maps or placeholder)
-  const staticMapUrl = place.coordinates
-    ? `https://maps.googleapis.com/maps/api/staticmap?center=${place.coordinates.lat},${place.coordinates.lng}&zoom=15&size=600x200&markers=color:red%7C${place.coordinates.lat},${place.coordinates.lng}&key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || ''}`
-    : '';
-
-  // Use actual image or fallback to Unsplash placeholder
-  const getCategoryImage = () => {
-    if (place.image_url) return place.image_url;
-    
-    // Unsplash fallback images based on category
-    const categoryImages: Record<string, string> = {
-      restaurant: 'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=800&h=400&fit=crop',
-      cafe: 'https://images.unsplash.com/photo-1554118811-1e0d58224f24?w=800&h=400&fit=crop',
-      accommodation: 'https://images.unsplash.com/photo-1566073771259-6a8506099945?w=800&h=400&fit=crop',
-      attraction: 'https://images.unsplash.com/photo-1555854877-bab0e564b8d5?w=800&h=400&fit=crop',
-      shopping: 'https://images.unsplash.com/photo-1441986300917-64674bd600d8?w=800&h=400&fit=crop',
-    };
-    
-    return categoryImages[place.category] || categoryImages.restaurant;
-  };
-
-  const placeImage = getCategoryImage();
+  const placeImage = place.image_url ?? (CATEGORY_IMAGES[place.category] || CATEGORY_IMAGES.restaurant);
 
   const handleSaveToggle = async () => {
     if (!session) {
@@ -107,7 +89,7 @@ export default function PlaceCard({ place, isSaved = false, onSaveToggle }: Plac
   return (
     <div className="bg-white dark:bg-gray-800 rounded-xl overflow-hidden shadow-lg hover:shadow-xl transition-shadow duration-300 border border-gray-200 dark:border-gray-700">
       {/* Image Section */}
-      <div className="relative h-48 bg-gradient-to-br from-yellow-100 to-orange-100 dark:from-gray-700 dark:to-gray-600">
+      <div className="relative h-48 bg-yellow-100 dark:bg-gray-700">
         <Image
           src={placeImage}
           alt={place.name_en}

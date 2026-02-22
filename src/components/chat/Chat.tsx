@@ -1,115 +1,48 @@
 'use client';
 
-import { useState, useRef, useEffect } from 'react';
+import { useChat } from '@ai-sdk/react';
+import { DefaultChatTransport, UIMessage } from 'ai';
 import { useSession } from 'next-auth/react';
+import { useState, useRef, useEffect } from 'react';
 import ChatMessage from './ChatMessage';
 import ChatInput from './ChatInput';
 import ChatSidebar from './ChatSidebar';
-import { ChatMessage as ChatMessageType } from '@/lib/types';
 
-const promptExamples = [
-  "Recommend authentic Korean restaurants near Daejeon Station",
-  "Find cozy cafes with good WiFi in Dunsan-dong",
+const PROMPT_EXAMPLES = [
+  "Recommend authentic Korean restaurants in Daejeon",
+  "Find cozy cafes with good WiFi in Daejeon",
   "Plan a 3-day trip to Daejeon with local food and attractions",
-  "Create a 2-day itinerary focusing on cultural sites and cafes"
+  "Create a 2-day itinerary focusing on cultural sites and cafes",
 ];
-
-const initialMessage: ChatMessageType = {
-  role: 'assistant',
-  content: "Hello! I'm your local guide to Daejeon. I can help you discover amazing restaurants, cafes, accommodations, and attractions in the city. What brings you to Daejeon, or what would you like to explore?",
-  timestamp: new Date(),
-};
 
 export default function Chat() {
   const { data: session } = useSession();
-  const [messages, setMessages] = useState<ChatMessageType[]>([initialMessage]);
-  const [isLoading, setIsLoading] = useState(false);
   const [savedPlaceIds, setSavedPlaceIds] = useState<Set<string>>(new Set());
   const [conversationId, setConversationId] = useState<string | null>(null);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-  const [sidebarKey, setSidebarKey] = useState(0); // Force sidebar refresh
+  const [sidebarKey, setSidebarKey] = useState(0);
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  
-  // Check if this is the first interaction (only initial assistant message)
-  const isFirstInteraction = messages.length === 1 && messages[0].role === 'assistant';
+  const conversationIdRef = useRef<string | null>(null);
+  conversationIdRef.current = conversationId;
 
-  // Fetch saved favorites
+  const { messages, sendMessage, status, setMessages } = useChat({
+    transport: new DefaultChatTransport({ api: '/api/chat' }),
+    onFinish: async ({ messages: finishedMessages }) => {
+      if (!session) return;
+      await saveConversationWith(finishedMessages as UIMessage[], conversationIdRef.current);
+    },
+  });
+
+  const isLoading = status === 'submitted' || status === 'streaming';
+  const isFirstInteraction = messages.length === 0;
+
   useEffect(() => {
-    if (session) {
-      fetchFavorites();
-    }
+    if (session) fetchFavorites();
   }, [session]);
 
-  // Auto-save conversation when messages change
   useEffect(() => {
-    if (session && messages.length > 1) {
-      saveConversation();
-    }
-  }, [messages, session]);
-
-  const loadConversation = async (conversationId: string) => {
-    try {
-      const response = await fetch(`/api/conversations/${conversationId}`);
-      if (response.ok) {
-        const data = await response.json();
-        setConversationId(data.conversation._id);
-        
-        // Clean up messages to filter out invalid places
-        const cleanedMessages = data.conversation.messages.map((msg: any) => ({
-          ...msg,
-          timestamp: new Date(msg.timestamp),
-          places: msg.places ? msg.places.filter((p: any) => p && p.id) : undefined,
-        }));
-        
-        setMessages(cleanedMessages);
-        setIsSidebarOpen(false); // Close sidebar on mobile after selection
-      }
-    } catch (error) {
-      console.error('Failed to load conversation:', error);
-    }
-  };
-
-  const saveConversation = async () => {
-    try {
-      // Generate title from first user message
-      const firstUserMessage = messages.find(m => m.role === 'user');
-      const title = firstUserMessage 
-        ? firstUserMessage.content.substring(0, 50) 
-        : 'New Conversation';
-
-      const response = await fetch('/api/conversations', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          conversationId,
-          messages,
-          title,
-        }),
-      });
-      const data = await response.json();
-      if (data.conversationId && !conversationId) {
-        setConversationId(data.conversationId);
-        // Refresh sidebar to show new conversation
-        setSidebarKey(prev => prev + 1);
-      }
-    } catch (error) {
-      console.error('Failed to save conversation:', error);
-    }
-  };
-
-  const startNewConversation = () => {
-    setMessages([initialMessage]);
-    setConversationId(null);
-    setIsSidebarOpen(false); // Close sidebar on mobile
-  };
-
-  const handleSelectConversation = (id: string | null) => {
-    if (id) {
-      loadConversation(id);
-    } else {
-      startNewConversation();
-    }
-  };
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [messages]);
 
   const fetchFavorites = async () => {
     try {
@@ -118,10 +51,9 @@ export default function Chat() {
         const data = await response.json();
         const ids = new Set<string>(
           data.favorites
-            .filter((f: any) => f && f.place && f.place.id)
-            .map((f: any) => f.place.id as string)
+            .filter((f: { place?: { id?: string } }) => f?.place?.id)
+            .map((f: { place: { id: string } }) => f.place.id)
         );
-        console.log('Fetched favorite IDs:', Array.from(ids));
         setSavedPlaceIds(ids);
       }
     } catch (error) {
@@ -130,98 +62,72 @@ export default function Chat() {
   };
 
   const handleSaveToggle = (placeId: string, isSaved: boolean) => {
-    console.log('handleSaveToggle called:', placeId, isSaved);
     setSavedPlaceIds((prev) => {
-      const newSet = new Set(prev);
-      if (isSaved) {
-        newSet.add(placeId);
-      } else {
-        newSet.delete(placeId);
-      }
-      console.log('Updated favorite IDs:', Array.from(newSet));
-      return newSet;
+      const next = new Set(prev);
+      isSaved ? next.add(placeId) : next.delete(placeId);
+      return next;
     });
   };
 
-  const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  const saveConversationWith = async (currentMessages: UIMessage[], currentConvId: string | null) => {
+    try {
+      const firstUserMessage = currentMessages.find((m) => m.role === 'user');
+      const title = firstUserMessage?.parts
+        .filter((p) => p.type === 'text')
+        .map((p) => ('text' in p ? p.text : ''))
+        .join('')
+        .substring(0, 50) ?? 'New Conversation';
+
+      const response = await fetch('/api/conversations', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ conversationId: currentConvId, messages: currentMessages, title }),
+      });
+      const data = await response.json();
+      if (data.conversationId && !currentConvId) {
+        setConversationId(data.conversationId);
+        setSidebarKey((prev) => prev + 1);
+      }
+    } catch (error) {
+      console.error('Failed to save conversation:', error);
+    }
   };
 
-  useEffect(() => {
-    scrollToBottom();
-  }, [messages]);
-
-  const handleSend = async (content: string) => {
-    // Add user message
-    const userMessage: ChatMessageType = {
-      role: 'user',
-      content,
-      timestamp: new Date(),
-    };
-
-    setMessages((prev) => [...prev, userMessage]);
-    setIsLoading(true);
-
+  const loadConversation = async (id: string) => {
     try {
-      // Call chat API
-      const response = await fetch('/api/chat', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          messages: [...messages, userMessage].map((m) => ({
-            role: m.role,
-            content: m.content,
-          })),
-        }),
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        console.error('API Error:', response.status, errorData);
-        throw new Error(errorData.error || errorData.details || 'Failed to get response');
+      const response = await fetch(`/api/conversations/${id}`);
+      if (response.ok) {
+        const data = await response.json();
+        setConversationId(data.conversation._id);
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        setMessages(data.conversation.messages.map((msg: any) => ({
+          ...msg,
+          id: msg.id ?? crypto.randomUUID(),
+        })));
+        setIsSidebarOpen(false);
       }
-
-      // Parse JSON response
-      const data = await response.json();
-      
-      console.log('API Response:', data); // Debug log
-      
-      // Filter out any null/undefined places
-      const validPlaces = (data.places || []).filter((p: any) => p && p.id);
-      
-      console.log('Valid places after filtering:', validPlaces.length); // Debug log
-      
-      // Add assistant message with structured data
-      setMessages((prev) => [
-        ...prev,
-        {
-          role: 'assistant',
-          content: data.text || "I'm sorry, I couldn't generate a response.",
-          places: validPlaces,
-          itinerary: data.itinerary || undefined,
-          timestamp: new Date(),
-        },
-      ]);
     } catch (error) {
-      console.error('Error sending message:', error);
-      setMessages((prev) => [
-        ...prev,
-        {
-          role: 'assistant',
-          content: "I'm sorry, I encountered an error. Please try again.",
-          timestamp: new Date(),
-        },
-      ]);
-    } finally {
-      setIsLoading(false);
+      console.error('Failed to load conversation:', error);
     }
+  };
+
+  const startNewConversation = () => {
+    setMessages([]);
+    setConversationId(null);
+    setIsSidebarOpen(false);
+  };
+
+  const handleSelectConversation = (id: string | null) => {
+    if (id) loadConversation(id);
+    else startNewConversation();
+  };
+
+  const handleSend = (content: string) => {
+    sendMessage({ text: content });
   };
 
   return (
     <div className="flex h-full">
-      {/* Sidebar */}
       {session && (
         <ChatSidebar
           key={sidebarKey}
@@ -234,70 +140,85 @@ export default function Chat() {
         />
       )}
 
-      {/* Main Chat Area */}
       <div className={`flex flex-col flex-1 bg-gray-50 dark:bg-black transition-all duration-300 ${session ? 'lg:ml-72' : ''}`}>
         {/* Header */}
         <div className="bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700 px-6 py-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-xl font-semibold text-gray-900 dark:text-white" style={{ fontFamily: 'var(--font-quicksand)' }}>
-                DOL-E - Daejeon Local Guide
-              </h1>
-              <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
-                Discover authentic local experiences in Daejeon
-              </p>
-            </div>
-          </div>
+          <h1 className="text-xl font-semibold text-gray-900 dark:text-white" style={{ fontFamily: 'var(--font-quicksand)' }}>
+            DOL-E - Daejeon Local Guide
+          </h1>
+          <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+            Discover authentic local experiences in Daejeon
+          </p>
         </div>
 
-      {/* Messages */}
-      <div className="flex-1 overflow-y-auto px-6 py-4">
-        <div className="max-w-3xl mx-auto">
-          {messages.map((message, index) => (
-            <ChatMessage 
-              key={index} 
-              message={message}
-              savedPlaceIds={savedPlaceIds}
-              onSaveToggle={handleSaveToggle}
-            />
-          ))}
-          
-          {/* Prompt Examples - Show only on first interaction */}
-          {isFirstInteraction && !isLoading && (
-            <div className="mt-8 space-y-3">
-              <p className="text-sm text-gray-500 dark:text-gray-400 text-center mb-4">
-                Try one of these:
-              </p>
-              <div className="grid gap-3">
-                {promptExamples.map((example, index) => (
-                  <button
-                    key={index}
-                    onClick={() => handleSend(example)}
-                    className="w-full p-4 text-left bg-white dark:bg-gray-800 border-2 border-gray-200 dark:border-gray-700 rounded-xl hover:border-yellow-400 dark:hover:border-yellow-500 hover:shadow-md transition-all duration-200 cursor-pointer group"
-                  >
-                    <span className="text-sm text-gray-700 dark:text-gray-300 group-hover:text-gray-900 dark:group-hover:text-white">
-                      {example}
-                    </span>
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
-          
-          {isLoading && messages[messages.length - 1]?.role === 'user' && (
-            <div className="flex justify-start mb-4">
-              <div className="bg-gray-100 dark:bg-gray-800 rounded-2xl px-4 py-3">
-                <div className="flex gap-1">
-                  <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
-                  <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
-                  <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
+        {/* Messages */}
+        <div className="flex-1 overflow-y-auto px-6 py-4">
+          <div className="max-w-3xl mx-auto">
+            {/* Welcome message */}
+            {isFirstInteraction && (
+              <div className="flex justify-start mb-6">
+                <div className="flex flex-row items-start gap-3 max-w-[85%]">
+                  <div className="flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center bg-yellow-500 text-white">
+                    <span className="font-bold text-lg">D</span>
+                  </div>
+                  <div>
+                    <div className="text-xs font-semibold mb-1 text-left text-yellow-600 dark:text-yellow-400">DOL-E</div>
+                    <div className="rounded-2xl px-4 py-3 bg-gray-100 text-gray-900 dark:bg-gray-800 dark:text-gray-100 drop-shadow-[0_2px_8px_rgba(0,0,0,0.1)]">
+                      <p className="text-sm leading-relaxed">
+                        Hello! I&apos;m your local guide to Daejeon. I can help you discover amazing restaurants, cafes,
+                        accommodations, and attractions. What brings you to Daejeon?
+                      </p>
+                    </div>
+                  </div>
                 </div>
               </div>
-            </div>
-          )}
-          <div ref={messagesEndRef} />
+            )}
+
+            {messages.map((message) => (
+              <ChatMessage
+                key={message.id}
+                message={message}
+                savedPlaceIds={savedPlaceIds}
+                onSaveToggle={handleSaveToggle}
+              />
+            ))}
+
+            {/* Prompt examples */}
+            {isFirstInteraction && !isLoading && (
+              <div className="mt-8 space-y-3">
+                <p className="text-sm text-gray-500 dark:text-gray-400 text-center mb-4">Try one of these:</p>
+                <div className="grid gap-3">
+                  {PROMPT_EXAMPLES.map((example, index) => (
+                    <button
+                      key={index}
+                      onClick={() => handleSend(example)}
+                      className="w-full p-4 text-left bg-white dark:bg-gray-800 border-2 border-gray-200 dark:border-gray-700 rounded-xl hover:border-yellow-400 dark:hover:border-yellow-500 hover:shadow-md transition-all duration-200 cursor-pointer group"
+                    >
+                      <span className="text-sm text-gray-700 dark:text-gray-300 group-hover:text-gray-900 dark:group-hover:text-white">
+                        {example}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Loading indicator */}
+            {isLoading && messages[messages.length - 1]?.role === 'user' && (
+              <div className="flex justify-start mb-4">
+                <div className="bg-gray-100 dark:bg-gray-800 rounded-2xl px-4 py-3">
+                  <div className="flex gap-1">
+                    <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
+                    <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
+                    <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
+                  </div>
+                </div>
+              </div>
+            )}
+
+            <div ref={messagesEndRef} />
+          </div>
         </div>
-      </div>
 
         {/* Input */}
         <div className="max-w-3xl w-full mx-auto">
