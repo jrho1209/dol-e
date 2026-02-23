@@ -53,7 +53,6 @@ export async function POST(req: NextRequest) {
       messages: await convertToModelMessages(messages),
       temperature: 0.7,
       maxOutputTokens: 1000,
-      maxSteps: 3,
       tools: {
         recommendPlaces: tool({
           description: 'Display place recommendation cards to the user for places in Daejeon',

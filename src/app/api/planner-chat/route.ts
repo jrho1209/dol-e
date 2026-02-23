@@ -38,7 +38,6 @@ export async function POST(req: NextRequest) {
       })),
       temperature: 0.7,
       maxOutputTokens: 500,
-      maxSteps: 3,
       tools: {
         recommendPlaces: tool({
           description: 'Display place recommendation cards to the user for places in Daejeon',
