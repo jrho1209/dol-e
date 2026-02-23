@@ -50,6 +50,7 @@ const PLACE_QUERY = `
 // ---------------------------------------------------------------------------
 
 export async function POST(request: Request) {
+  try {
   const rawBody = await request.text()
   const signature = request.headers.get(SIGNATURE_HEADER_NAME) ?? ''
   const operation = request.headers.get('sanity-operation') ?? ''
@@ -60,7 +61,8 @@ export async function POST(request: Request) {
     return Response.json({ error: 'Server misconfiguration' }, { status: 500 })
   }
 
-  if (!isValidSignature(rawBody, secret, signature)) {
+  const validSig = await isValidSignature(rawBody, secret, signature)
+  if (!validSig) {
     return Response.json({ error: 'Invalid signature' }, { status: 401 })
   }
 
@@ -164,4 +166,11 @@ export async function POST(request: Request) {
     { message: `${existing ? 'Updated' : 'Created'}: ${sp.name_en}` },
     { status: 200 },
   )
+  } catch (error) {
+    console.error('[sanity-webhook] Unhandled error:', error)
+    return Response.json(
+      { error: 'Internal server error', details: error instanceof Error ? error.message : String(error) },
+      { status: 500 },
+    )
+  }
 }
