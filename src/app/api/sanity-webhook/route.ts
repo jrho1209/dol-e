@@ -12,7 +12,7 @@
  *   Secret : (set SANITY_WEBHOOK_SECRET in .env.local)
  */
 
-import { createHmac, timingSafeEqual } from 'crypto'
+import { isValidSignature, SIGNATURE_HEADER_NAME } from '@sanity/webhook'
 import { createClient } from 'next-sanity'
 import { generateEmbedding, createSearchableText } from '@/lib/rag'
 import { getDatabase } from '@/lib/mongodb'
@@ -46,42 +46,12 @@ const PLACE_QUERY = `
 `
 
 // ---------------------------------------------------------------------------
-// Signature verification (HMAC-SHA256)
-// Header format: "t=<unix_timestamp>,v1=<hex_digest>"
-// Signed payload: "<timestamp>.<raw_body>"
-// ---------------------------------------------------------------------------
-
-function isValidSignature(body: string, signatureHeader: string, secret: string): boolean {
-  if (!signatureHeader || !secret) return false
-
-  const parts = signatureHeader.split(',')
-  const tPart = parts.find(p => p.startsWith('t='))
-  const v1Part = parts.find(p => p.startsWith('v1='))
-  if (!tPart || !v1Part) return false
-
-  const timestamp = tPart.substring(2)
-  const receivedSig = v1Part.substring(3)
-  const signed = `${timestamp}.${body}`
-  const expectedSig = createHmac('sha256', secret).update(signed).digest('hex')
-
-  try {
-    return timingSafeEqual(
-      Buffer.from(receivedSig, 'hex'),
-      Buffer.from(expectedSig, 'hex'),
-    )
-  } catch {
-    return false
-  }
-}
-
-// ---------------------------------------------------------------------------
 // POST handler
 // ---------------------------------------------------------------------------
 
 export async function POST(request: Request) {
   const rawBody = await request.text()
-  const signatureHeader = request.headers.get('sanity-webhook-signature') ?? ''
-  // Sanity sends the operation type in a header
+  const signature = request.headers.get(SIGNATURE_HEADER_NAME) ?? ''
   const operation = request.headers.get('sanity-operation') ?? ''
   const secret = process.env.SANITY_WEBHOOK_SECRET
 
@@ -90,7 +60,7 @@ export async function POST(request: Request) {
     return Response.json({ error: 'Server misconfiguration' }, { status: 500 })
   }
 
-  if (!isValidSignature(rawBody, signatureHeader, secret)) {
+  if (!isValidSignature(rawBody, secret, signature)) {
     return Response.json({ error: 'Invalid signature' }, { status: 401 })
   }
 

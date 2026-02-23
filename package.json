@@ -19,6 +19,7 @@
     "@sanity/client": "^7.15.0",
     "@sanity/image-url": "^1.2.0",
     "@sanity/vision": "^4.22.0",
+    "@sanity/webhook": "^4.0.4",
     "ai": "^6.0.3",
     "bcryptjs": "^3.0.3",
     "date-fns": "^4.1.0",
