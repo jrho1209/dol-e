@@ -24,6 +24,10 @@
 .DS_Store
 *.pem
 
+# Claude Code internals
+.agents/
+.claude/
+
 # debug
 npm-debug.log*
 yarn-debug.log*
