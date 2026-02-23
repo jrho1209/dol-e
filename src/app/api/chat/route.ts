@@ -52,7 +52,7 @@ export async function POST(req: NextRequest) {
       system: SYSTEM_PROMPT + '\n\n' + context,
       messages: await convertToModelMessages(messages),
       temperature: 0.7,
-      maxTokens: 1000,
+      maxOutputTokens: 1000,
       maxSteps: 3,
       tools: {
         recommendPlaces: tool({

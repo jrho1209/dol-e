@@ -37,7 +37,7 @@ export async function POST(req: NextRequest) {
         content: m.content,
       })),
       temperature: 0.7,
-      maxTokens: 500,
+      maxOutputTokens: 500,
       maxSteps: 3,
       tools: {
         recommendPlaces: tool({
