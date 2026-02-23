@@ -47,6 +47,24 @@ export const place = {
       validation: (R: any) => R.required(),
     },
 
+    // ── Cuisine Type (restaurants only) ─────────────────────────────────────
+    {
+      name: 'cuisine_type',
+      title: 'Cuisine Type',
+      type: 'string',
+      hidden: ({ document }: { document: { category?: string } }) => document?.category !== 'restaurant',
+      options: {
+        list: [
+          { title: '한식 Korean', value: 'korean' },
+          { title: '일식 Japanese', value: 'japanese' },
+          { title: '중식 Chinese', value: 'chinese' },
+          { title: '양식 Western', value: 'western' },
+          { title: '기타 Other', value: 'other' },
+        ],
+        layout: 'radio',
+      },
+    },
+
     // ── Descriptions ────────────────────────────────────────────────────────
     {
       name: 'description',

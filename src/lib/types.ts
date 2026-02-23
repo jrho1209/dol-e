@@ -17,6 +17,7 @@ export interface Place {
   opening_hours?: string;
   contact?: string;
   is_local_business: boolean; // true for local, false for franchise
+  cuisine_type?: 'korean' | 'japanese' | 'chinese' | 'western' | 'other';
   specialties?: { name: string; image_url?: string }[]; // For restaurants: signature dishes with optional photo
   nearby_attractions?: string[];
   created_at?: string;

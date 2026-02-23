@@ -40,6 +40,7 @@ const PLACE_QUERY = `
     opening_hours,
     contact,
     is_local_business,
+    cuisine_type,
     "specialties": specialties[]{ name, "image_url": image.asset->url },
     nearby_attractions
   }
@@ -124,6 +125,7 @@ export async function POST(request: Request) {
     opening_hours: sp.opening_hours,
     contact: sp.contact,
     is_local_business: sp.is_local_business ?? true,
+    cuisine_type: sp.cuisine_type,
     specialties: sp.specialties,
     nearby_attractions: sp.nearby_attractions,
   }

@@ -37,6 +37,7 @@ export function createSearchableText(place: Place): string {
     place.description_en,
     place.district,
     place.address,
+    place.cuisine_type,
   ];
 
   if (place.specialties) {
