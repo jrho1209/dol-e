@@ -21,11 +21,10 @@ export const samplePlaces: Omit<Place, 'id' | 'created_at' | 'updated_at'>[] = [
     price_range: 1,
     opening_hours: '08:00-22:00 daily',
     is_local_business: true,
-    specialties: ['Fried Soboro Bread', 'Chive Bread', 'Butter Cream Cake'],
-    specialty_images: [
-      'https://images.unsplash.com/photo-1509440159596-0249088772ff?w=200&h=200&fit=crop',
-      'https://images.unsplash.com/photo-1586985289688-ca3cf47d3e6e?w=200&h=200&fit=crop',
-      'https://images.unsplash.com/photo-1578985545062-69928b1d9587?w=200&h=200&fit=crop',
+    specialties: [
+      { name: 'Fried Soboro Bread', image_url: 'https://images.unsplash.com/photo-1509440159596-0249088772ff?w=200&h=200&fit=crop' },
+      { name: 'Chive Bread', image_url: 'https://images.unsplash.com/photo-1586985289688-ca3cf47d3e6e?w=200&h=200&fit=crop' },
+      { name: 'Butter Cream Cake', image_url: 'https://images.unsplash.com/photo-1578985545062-69928b1d9587?w=200&h=200&fit=crop' },
     ],
     nearby_attractions: ['Daejeon Station', 'Jungang Market'],
   },
@@ -42,11 +41,10 @@ export const samplePlaces: Omit<Place, 'id' | 'created_at' | 'updated_at'>[] = [
     price_range: 3,
     opening_hours: '11:00-21:00, Closed Sundays',
     is_local_business: true,
-    specialties: ['Korean course meal', 'Seasonal banchan', 'Homemade kimchi'],
-    specialty_images: [
-      'https://images.unsplash.com/photo-1498654896293-37aacf113fd9?w=200&h=200&fit=crop',
-      'https://images.unsplash.com/photo-1580822184713-fc5400e7fe10?w=200&h=200&fit=crop',
-      'https://images.unsplash.com/photo-1590301157890-4810ed352733?w=200&h=200&fit=crop',
+    specialties: [
+      { name: 'Korean course meal', image_url: 'https://images.unsplash.com/photo-1498654896293-37aacf113fd9?w=200&h=200&fit=crop' },
+      { name: 'Seasonal banchan', image_url: 'https://images.unsplash.com/photo-1580822184713-fc5400e7fe10?w=200&h=200&fit=crop' },
+      { name: 'Homemade kimchi', image_url: 'https://images.unsplash.com/photo-1590301157890-4810ed352733?w=200&h=200&fit=crop' },
     ],
     nearby_attractions: ['Ppuri Park', 'Daejeon Museum of Art'],
   },
@@ -63,11 +61,10 @@ export const samplePlaces: Omit<Place, 'id' | 'created_at' | 'updated_at'>[] = [
     price_range: 1,
     opening_hours: '10:00-21:00 daily',
     is_local_business: true,
-    specialties: ['Kalguksu (knife-cut noodles)', 'Mandu (dumplings)', 'Bibim-guksu'],
-    specialty_images: [
-      'https://images.unsplash.com/photo-1617093727343-374698b1b08d?w=200&h=200&fit=crop',
-      'https://images.unsplash.com/photo-1496116218417-1a781b1c416c?w=200&h=200&fit=crop',
-      'https://images.unsplash.com/photo-1569718212165-3a8278d5f624?w=200&h=200&fit=crop',
+    specialties: [
+      { name: 'Kalguksu (knife-cut noodles)', image_url: 'https://images.unsplash.com/photo-1617093727343-374698b1b08d?w=200&h=200&fit=crop' },
+      { name: 'Mandu (dumplings)', image_url: 'https://images.unsplash.com/photo-1496116218417-1a781b1c416c?w=200&h=200&fit=crop' },
+      { name: 'Bibim-guksu', image_url: 'https://images.unsplash.com/photo-1569718212165-3a8278d5f624?w=200&h=200&fit=crop' },
     ],
     nearby_attractions: ['Yuseong Hot Springs', 'Expo Park'],
   },
@@ -83,7 +80,11 @@ export const samplePlaces: Omit<Place, 'id' | 'created_at' | 'updated_at'>[] = [
     price_range: 2,
     opening_hours: 'Varies by restaurant, most open 16:00-02:00',
     is_local_business: true,
-    specialties: ['Jokbal (braised pig trotters)', 'Bossam', 'Soju pairing'],
+    specialties: [
+      { name: 'Jokbal (braised pig trotters)' },
+      { name: 'Bossam' },
+      { name: 'Soju pairing' },
+    ],
     nearby_attractions: ['Daejeon O-World', 'Ppuri Park'],
   },
   {
@@ -98,7 +99,11 @@ export const samplePlaces: Omit<Place, 'id' | 'created_at' | 'updated_at'>[] = [
     price_range: 1,
     opening_hours: '11:00-22:00 daily',
     is_local_business: true,
-    specialties: ['Tteokbokki', 'Fried foods', 'Sundae'],
+    specialties: [
+      { name: 'Tteokbokki' },
+      { name: 'Fried foods' },
+      { name: 'Sundae' },
+    ],
     nearby_attractions: ['Government Complex Daejeon', 'Hanbat Arboretum'],
   },
 
@@ -115,7 +120,11 @@ export const samplePlaces: Omit<Place, 'id' | 'created_at' | 'updated_at'>[] = [
     price_range: 2,
     opening_hours: '10:00-22:00 daily',
     is_local_business: true,
-    specialties: ['Single-origin coffee', 'Seasonal cake', 'Traditional tea'],
+    specialties: [
+      { name: 'Single-origin coffee' },
+      { name: 'Seasonal cake' },
+      { name: 'Traditional tea' },
+    ],
     nearby_attractions: ['Daejeon Station', 'Jungang Market'],
   },
   {
@@ -130,7 +139,11 @@ export const samplePlaces: Omit<Place, 'id' | 'created_at' | 'updated_at'>[] = [
     price_range: 2,
     opening_hours: '10:00-21:00 daily',
     is_local_business: true,
-    specialties: ['Americano', 'Latte art', 'Brunch menu'],
+    specialties: [
+      { name: 'Americano' },
+      { name: 'Latte art' },
+      { name: 'Brunch menu' },
+    ],
     nearby_attractions: ['Gyejoksan Mountain', 'Jangtaesan Natural Recreation Forest'],
   },
 

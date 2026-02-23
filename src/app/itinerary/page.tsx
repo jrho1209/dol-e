@@ -703,7 +703,7 @@ function ItineraryContent() {
               name: item.place.name_en || item.place.name,
               category: item.place.category,
               description: item.place.description_en || item.place.description,
-              image: item.place.specialty_images?.[0] || item.place.image_url,
+              image: item.place.specialties?.[0]?.image_url || item.place.image_url,
               rating: item.place.rating,
               estimatedDuration: estimateDuration(item.place.category),
             };
@@ -822,7 +822,7 @@ function ItineraryContent() {
         estimatedDuration: estimateDuration(place.category),
         aiPrompt: currentInput,
         rating: place.rating,
-        image: place.specialty_images?.[0] || place.images?.[0],
+        image: place.specialties?.[0]?.image_url || place.image_url,
       }));
 
       const aiResponseContent = data.text ||
@@ -854,7 +854,7 @@ function ItineraryContent() {
           name: item.place.name_en || item.place.name,
           category: item.place.category,
           description: item.place.description_en || item.place.description,
-          image: item.place.specialty_images?.[0] || item.place.image_url,
+          image: item.place.specialties?.[0]?.image_url || item.place.image_url,
           rating: item.place.rating,
           estimatedDuration: estimateDuration(item.place.category),
         };

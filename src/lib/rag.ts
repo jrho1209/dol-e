@@ -124,13 +124,6 @@ export async function searchSimilarPlaces(
       // Remove MongoDB _id and embedding from the place object
       const { _id, embedding, ...placeData } = doc;
       
-      // Debug log
-      console.log('RAG - Place:', placeData.name_en);
-      console.log('RAG - Has specialty_images:', !!placeData.specialty_images);
-      if (placeData.specialty_images) {
-        console.log('RAG - specialty_images:', placeData.specialty_images);
-      }
-      
       return {
         place: {
           id: _id.toString(),

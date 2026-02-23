@@ -172,18 +172,18 @@ export default function PlaceCard({ place, isSaved = false, onSaveToggle }: Plac
             </p>
             
             {/* Menu Images Carousel */}
-            {place.specialty_images && place.specialty_images.length > 0 ? (
+            {place.specialties && place.specialties.some(s => s.image_url) ? (
               <div className="relative">
                 {/* Carousel Container */}
                 <div className="flex gap-2 overflow-hidden">
-                  {place.specialty_images.slice(0, 3).map((imgUrl, index) => (
+                  {place.specialties.filter(s => s.image_url).slice(0, 3).map((specialty, index) => (
                     <div
                       key={index}
                       className="relative flex-shrink-0 w-20 h-20 rounded-lg overflow-hidden bg-gray-200 dark:bg-gray-700 group"
                     >
                       <Image
-                        src={imgUrl}
-                        alt={place.specialties?.[index] || 'Menu item'}
+                        src={specialty.image_url!}
+                        alt={specialty.name}
                         fill
                         className="object-cover"
                         unoptimized
@@ -208,7 +208,7 @@ export default function PlaceCard({ place, isSaved = false, onSaveToggle }: Plac
                   {place.specialties.slice(0, 3).map((specialty, index) => (
                     <div key={index} className="flex items-start gap-1">
                       <span className="font-bold text-yellow-600 dark:text-yellow-400">{index + 1}:</span>
-                      <span>{specialty}</span>
+                      <span>{specialty.name}</span>
                     </div>
                   ))}
                 </div>
@@ -216,7 +216,7 @@ export default function PlaceCard({ place, isSaved = false, onSaveToggle }: Plac
             ) : (
               // Fallback to text only
               <p className="text-sm text-gray-800 dark:text-gray-200 font-medium">
-                {place.specialties.slice(0, 2).join(', ')}
+                {place.specialties.slice(0, 2).map(s => s.name).join(', ')}
               </p>
             )}
           </div>
