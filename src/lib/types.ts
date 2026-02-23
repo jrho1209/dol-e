@@ -17,8 +17,7 @@ export interface Place {
   opening_hours?: string;
   contact?: string;
   is_local_business: boolean; // true for local, false for franchise
-  specialties?: string[]; // For restaurants: signature dishes
-  specialty_images?: string[]; // URLs to specialty dish images
+  specialties?: { name: string; image_url?: string }[]; // For restaurants: signature dishes with optional photo
   nearby_attractions?: string[];
   created_at?: string;
   updated_at?: string;

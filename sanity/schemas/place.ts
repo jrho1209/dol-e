@@ -92,13 +92,6 @@ export const place = {
       type: 'image',
       options: { hotspot: true },
     },
-    {
-      name: 'specialty_images',
-      title: 'Specialty / Dish Images',
-      type: 'array',
-      of: [{ type: 'image', options: { hotspot: true } }],
-      description: 'Signature dishes or notable features (up to 5 recommended)',
-    },
 
     // ── Details ─────────────────────────────────────────────────────────────
     {
@@ -163,9 +156,29 @@ export const place = {
       name: 'specialties',
       title: 'Specialties / Signature Dishes',
       type: 'array',
-      of: [{ type: 'string' }],
-      options: { layout: 'tags' },
-      description: 'For restaurants and cafes — list signature items',
+      of: [
+        {
+          type: 'object',
+          fields: [
+            {
+              name: 'name',
+              title: 'Dish Name',
+              type: 'string',
+              validation: (R: any) => R.required(),
+            },
+            {
+              name: 'image',
+              title: 'Dish Image',
+              type: 'image',
+              options: { hotspot: true },
+            },
+          ],
+          preview: {
+            select: { title: 'name', media: 'image' },
+          },
+        },
+      ],
+      description: 'For restaurants and cafes — add each signature dish with a photo',
     },
 
     // ── Context ─────────────────────────────────────────────────────────────

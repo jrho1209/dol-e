@@ -40,7 +40,7 @@ export function createSearchableText(place: Place): string {
   ];
 
   if (place.specialties) {
-    parts.push(...place.specialties);
+    parts.push(...place.specialties.map(s => s.name));
   }
 
   if (place.features) {

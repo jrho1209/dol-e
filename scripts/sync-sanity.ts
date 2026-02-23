@@ -54,8 +54,7 @@ const PLACES_QUERY = `
     opening_hours,
     contact,
     is_local_business,
-    specialties,
-    "specialty_images": specialty_images[].asset->url,
+    "specialties": specialties[]{ name, "image_url": image.asset->url },
     nearby_attractions
   }
 `;
@@ -81,8 +80,7 @@ interface SanityPlace {
   opening_hours?: string;
   contact?: string;
   is_local_business: boolean;
-  specialties?: string[];
-  specialty_images?: string[];
+  specialties?: { name: string; image_url?: string }[];
   nearby_attractions?: string[];
 }
 
@@ -131,7 +129,6 @@ async function syncSanityToMongoDB() {
         contact: sp.contact,
         is_local_business: sp.is_local_business ?? true,
         specialties: sp.specialties,
-        specialty_images: sp.specialty_images,
         nearby_attractions: sp.nearby_attractions,
       };
 
