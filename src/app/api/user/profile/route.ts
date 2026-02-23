@@ -1,11 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
+import { getServerSession, type Session } from 'next-auth';
 import { authOptions } from '@/app/api/auth/[...nextauth]/route';
 import clientPromise from '@/lib/mongodb';
 import { ObjectId } from 'mongodb';
 import bcrypt from 'bcryptjs';
 
-async function getUser(session: Awaited<ReturnType<typeof getServerSession>>) {
+async function getUser(session: Session | null) {
   if (!session?.user?.email) return null;
   const client = await clientPromise;
   const db = client.db(process.env.MONGODB_DB_NAME);

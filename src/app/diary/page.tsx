@@ -297,7 +297,7 @@ export default function DiaryPage() {
                               {place.prompt && (
                                 <div className="mt-3 pt-3 border-t border-gray-200 dark:border-gray-700">
                                   <button
-                                    onClick={() => setSelectedPrompt(selectedPrompt === place.prompt ? null : place.prompt)}
+                                    onClick={() => setSelectedPrompt(selectedPrompt === place.prompt ? null : place.prompt ?? null)}
                                     className="w-full text-left"
                                   >
                                     <div className="flex items-start gap-2 text-sm">
