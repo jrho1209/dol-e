@@ -56,6 +56,13 @@ export async function POST(request: Request) {
   const operation = request.headers.get('sanity-operation') ?? ''
   const secret = process.env.SANITY_WEBHOOK_SECRET
 
+  console.log('[sanity-webhook] Debug:', {
+    hasSecret: !!secret,
+    secretLength: secret?.length,
+    hasSignature: !!signature,
+    signaturePreview: signature?.slice(0, 20),
+  })
+
   if (!secret) {
     console.error('[sanity-webhook] SANITY_WEBHOOK_SECRET is not configured')
     return Response.json({ error: 'Server misconfiguration' }, { status: 500 })
